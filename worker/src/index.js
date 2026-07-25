@@ -361,7 +361,7 @@ async function buildPayload(env) {
   return {
     ok: true,
     service: "FanTeam Data Engine",
-    version: "2.1.0",
+    version: "2.1.1",
     updatedAt: new Date().toISOString(),
     currentGW: currentGameweek(),
 
@@ -420,7 +420,7 @@ export default {
       return responseJSON({
         ok: true,
         service: "FanTeam Data Engine",
-        version: "2.1.0",
+        version: "2.1.1",
         currentGW: currentGameweek(),
         updatedAt: new Date().toISOString()
       });
@@ -428,7 +428,7 @@ export default {
 
     const cache = caches.default;
     const cacheKey = new Request(
-      `${url.origin}/__fanteam_cache_v7`,
+      `${url.origin}/__fanteam_cache_v8`,
       { method: "GET" }
     );
 

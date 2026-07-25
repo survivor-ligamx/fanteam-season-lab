@@ -1,4 +1,4 @@
-// Prueba local del Worker fanteam-data (v2.1.0) — sin red ni credenciales reales.
+// Prueba local del Worker fanteam-data (v2.1.1) — sin red ni credenciales reales.
 // Ejecutar: node worker/test/smoke.mjs
 import worker from "../src/index.js";
 
@@ -66,7 +66,7 @@ const ctx1 = mkCtx();
 const res1 = await worker.fetch(new Request("https://w.dev/latest"), env, ctx1);
 const d1 = await res1.json();
 console.log("\n— Escenario 1: partido a +90 min (odds 401) —");
-check("version 2.1.0", d1.version === "2.1.0");
+check("version 2.1.1", d1.version === "2.1.1");
 check("Cache-Control 900s (ventana de partido)", res1.headers.get("Cache-Control").includes("max-age=900"));
 check("errors.odds = HTTP 401", d1.errors.odds === "HTTP 401");
 check("sources.odds = false", d1.sources.odds === false);
@@ -85,7 +85,7 @@ check("cache.put invocado", ctx1.waited.length === 1 && cacheStore.size === 1);
 // ---------- Escenario 2: caché sirve la respuesta ----------
 const res2 = await worker.fetch(new Request("https://w.dev/otra-ruta"), env, mkCtx());
 console.log("\n— Escenario 2: hit de caché —");
-check("misma respuesta cacheada (clave v7 por origen)", res2 === cacheStore.get("https://w.dev/__fanteam_cache_v7"));
+check("misma respuesta cacheada (clave v7 por origen)", res2 === cacheStore.get("https://w.dev/__fanteam_cache_v8"));
 
 // ---------- Escenario 3: semana sin partidos ----------
 cacheStore.clear();
@@ -101,7 +101,7 @@ const h = await (await worker.fetch(new Request("https://w.dev/health"), env, mk
 const o = await worker.fetch(new Request("https://w.dev/", { method: "OPTIONS" }), env, mkCtx());
 const p = await worker.fetch(new Request("https://w.dev/", { method: "POST" }), env, mkCtx());
 console.log("\n— Escenario 4: /health, OPTIONS, POST —");
-check("/health v2.1.0 GW correcto", h.version === "2.1.0" && h.currentGW >= 1 && h.currentGW <= 38);
+check("/health v2.1.1 GW correcto", h.version === "2.1.1" && h.currentGW >= 1 && h.currentGW <= 38);
 check("OPTIONS 204", o.status === 204);
 check("POST 405", p.status === 405);
 

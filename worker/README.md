@@ -7,11 +7,11 @@ Motor de datos del proyecto: agrega Football-Data, API-Football, GNews y The Odd
 
 ## Versiones
 
-- **Desplegada en Cloudflare: v2.0.0** (caché fija de 3 h, lesiones sin caducidad).
-- **En este repo: v2.1.0** — lista para desplegar (camino A o B abajo). Cambios:
+- **En este repo: v2.1.1** — igual que la 2.1.0 ya desplegada, más clave de caché `v7 → v8` para descartar al instante el payload cacheado que quedó con el `HTTP 401` de momios (tras reponer la `ODDS_API_KEY`).
+- Cambios de la serie 2.1.x sobre la 2.0.0 original:
   1. **Caché adaptativa**: 15 min cuando hay partidos en ventana (kickoff entre −3 h y +4 h) y 3 h el resto de la semana. Sin esto, las alineaciones que el código captura quedaban atrapadas por el caché de 3 h y casi nunca llegaban a la app.
   2. **Lesiones con caducidad**: registros de más de 21 días se descartan (adiós lesionados zombis), `Questionable` → confianza 30 (duda) vs `Missing Fixture` → 5 (baja), y si un jugador tiene varios registros gana el más reciente.
-  3. Clave de caché `v6 → v7` (al desplegar, el primer request ya reconstruye sin esperar a que expire el caché viejo).
+  3. Clave de caché versionada (`__fanteam_cache_vN`): al subirla, el primer request tras el deploy reconstruye el payload sin esperar a que expire el caché viejo.
 
 Prueba local (sin red ni credenciales): `node worker/test/smoke.mjs`
 
