@@ -46,14 +46,17 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 ## Módulo de optimización
 
-- **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Pts/M€** (valor = 3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Ordenable por cualquier columna (clic en el encabezado o selector).
-- **Optimizador de Wildcard (Comodines):** construye la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo presupuesto ≤ 100M, cupos y máximo 3 por club. Corre en el navegador en <1 s.
+- **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Pts/M€** (valor = 3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Para tu plantilla también muestra precio de compra y variación; es ordenable por cualquier columna (clic en el encabezado o selector).
+- **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra, y guarda un corte al confirmar cada jornada.
+- **Optimizador de Wildcard (Comodines):** construye la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. Corre en el navegador en <1 s.
 - **Planner encadenado 6GW:** parte de la plantilla y las transferencias libres actuales, aplica virtualmente cada recomendación antes de calcular la siguiente jornada, recalcula XI/capitán/vice, acumula las FT y compara la proyección total contra conservar el equipo. Solo permite aplicar el primer movimiento; el resto se recalcula con datos nuevos.
 - **Mejor XI:** 8 formaciones evaluadas; capitán y vice por valor esperado, combinando la proyección base con probabilidades `h2h` y `totals` normalizadas de varias casas. La frescura se mide con `last_update` de cada mercado; si no hay mercados con menos de 6 horas, utiliza automáticamente la proyección base.
 
 ## Respaldo de temporada
 
-Tu temporada (plantilla, historial, jornada, wildcards) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON** de respaldo e **importarlo** en cualquier navegador/dispositivo.
+Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios de compra, precios importados e historial de valor) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON v2** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos anteriores siguen siendo compatibles mediante migración automática.
+
+En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugadores y volver a importarla actualizada. También se acepta CSV con encabezados `id,name,club,price`; el ID tiene prioridad y el fallback nombre+club solo se aplica cuando la coincidencia es única.
 
 ## Desarrollo y deploy
 
@@ -69,4 +72,5 @@ Tu temporada (plantilla, historial, jornada, wildcards) vive en `localStorage`. 
 - ✅ v2.1.1 desplegada en Cloudflare; The Odds API activa y validada con mercados de Premier League.
 - ✅ Capitán y vice por valor esperado con momios normalizados y fallback automático al modelo base.
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
+- ✅ Seguimiento de valor con precios de compra, importación JSON/CSV, plusvalía/pérdida, saldo, poder de compra, cortes semanales y respaldos v2 compatibles.
 - ⬜ Puntos reales por jornada y tracking de aciertos del modelo.
