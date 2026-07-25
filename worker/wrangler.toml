@@ -1,0 +1,18 @@
+# Cloudflare Worker: fanteam-data
+# PLANTILLA — ajustar cuando el código del Worker se respalde en worker/src/index.js
+# (el Worker desplegado hoy vive solo en el dashboard de Cloudflare; ver README.md)
+
+name = "fanteam-data"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Cron del agregador (ajustar a la frecuencia real configurada en el dashboard)
+[triggers]
+crons = ["0 */6 * * *"]
+
+# Secrets requeridos (NO van en este archivo — usar `wrangler secret put <NOMBRE>`):
+#   API_FOOTBALL_KEY   → API-Football (lesiones/alineaciones)
+#   FOOTBALL_DATA_KEY  → Football-Data.org (calendario/resultados)
+#   GNEWS_KEY          → GNews (noticias)
+#   ODDS_API_KEY       → The Odds API (momios) ← hoy falla con HTTP 401
+# Los nombres exactos deben coincidir con los que use el código del Worker.
