@@ -85,7 +85,7 @@ check("cache.put invocado", ctx1.waited.length === 1 && cacheStore.size === 1);
 // ---------- Escenario 2: caché sirve la respuesta ----------
 const res2 = await worker.fetch(new Request("https://w.dev/otra-ruta"), env, mkCtx());
 console.log("\n— Escenario 2: hit de caché —");
-check("misma respuesta cacheada (clave v7 por origen)", res2 === cacheStore.get("https://w.dev/__fanteam_cache_v8"));
+check("misma respuesta cacheada (clave v8 por origen)", res2 === cacheStore.get("https://w.dev/__fanteam_cache_v8"));
 
 // ---------- Escenario 3: semana sin partidos ----------
 cacheStore.clear();

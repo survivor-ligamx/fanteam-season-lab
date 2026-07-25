@@ -13,5 +13,5 @@ compatibility_date = "2026-07-01"
 # o el dashboard: Settings → Variables and Secrets → tipo Secret):
 #   API_FOOTBALL_KEY   → API-Football (lesiones, fixtures, alineaciones)
 #   FOOTBALL_DATA_KEY  → Football-Data.org (calendario/resultados PL)
-#   ODDS_API_KEY       → The Odds API (momios) ← hoy responde HTTP 401: reponer key
+#   ODDS_API_KEY       → The Odds API (momios)
 #   GNEWS_API_KEY      → GNews (noticias)
