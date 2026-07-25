@@ -5,6 +5,16 @@ Motor de datos del proyecto: agrega Football-Data, API-Football, GNews y The Odd
 - **URL:** `https://fanteam-data.brandonleon480.workers.dev/` (cualquier ruta GET devuelve el payload; `/health` devuelve estado ligero)
 - **Código:** `src/index.js` (respaldo del Worker desplegado)
 
+## Versiones
+
+- **Desplegada en Cloudflare: v2.0.0** (caché fija de 3 h, lesiones sin caducidad).
+- **En este repo: v2.1.0** — lista para desplegar (camino A o B abajo). Cambios:
+  1. **Caché adaptativa**: 15 min cuando hay partidos en ventana (kickoff entre −3 h y +4 h) y 3 h el resto de la semana. Sin esto, las alineaciones que el código captura quedaban atrapadas por el caché de 3 h y casi nunca llegaban a la app.
+  2. **Lesiones con caducidad**: registros de más de 21 días se descartan (adiós lesionados zombis), `Questionable` → confianza 30 (duda) vs `Missing Fixture` → 5 (baja), y si un jugador tiene varios registros gana el más reciente.
+  3. Clave de caché `v6 → v7` (al desplegar, el primer request ya reconstruye sin esperar a que expire el caché viejo).
+
+Prueba local (sin red ni credenciales): `node worker/test/smoke.mjs`
+
 ## Cómo funciona
 
 - **Sin cron.** La frescura la gobierna el **caché de borde** (`caches.default`): la primera petición tras expirar el TTL reconstruye el payload consultando las 4 fuentes; el resto se sirve desde caché.

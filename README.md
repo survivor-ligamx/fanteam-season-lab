@@ -64,7 +64,8 @@ Tu temporada (plantilla, historial, jornada, wildcards) vive en `localStorage`. 
 ## Estado y pendientes
 
 - ✅ App nueva publicada con módulo de optimización completo.
-- ⬜ Poblar `players[]` en el Worker (lesiones/alineaciones → `confidence`).
-- ⬜ Arreglar momios (`errors.odds: HTTP 401`) y capitán por valor esperado con momios.
-- ⬜ Respaldar el código del Worker en `worker/src/` (hoy vive solo en Cloudflare).
+- ✅ Código del Worker respaldado en `worker/src/index.js` (v2.1.0 en repo con caché adaptativa y lesiones con caducidad; probado con `node worker/test/smoke.mjs`).
+- ✅ `players[]`: el Worker ya lo puebla con lesiones y alineaciones (vacío en pretemporada es esperado; se activa solo con la temporada).
+- ⬜ **Desplegar v2.1.0** en Cloudflare (`worker/README.md`, dos caminos).
+- ⬜ Reponer el secret `ODDS_API_KEY` (hoy `HTTP 401`) y después: capitán por valor esperado con momios.
 - ⬜ Puntos reales por jornada y tracking de aciertos del modelo; planner que encadene transferencias.

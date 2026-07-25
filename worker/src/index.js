@@ -214,6 +214,9 @@ function parsePlayerUpdates(apiFootball) {
 
   if (apiFootball.injuries.ok) {
     const injuries = apiFootball.injuries.data?.response || [];
+    const now = Date.now();
+    const maxAge = 21 * 86400000; // lesiones con más de 21 días se descartan
+    const seen = new Map(); // key -> timestamp del registro usado
 
     for (const item of injuries) {
       const name = item.player?.name;
@@ -221,12 +224,27 @@ function parsePlayerUpdates(apiFootball) {
 
       if (!name) continue;
 
-      updates.set(`${name}|${club || ""}`, {
+      const parsed = item.fixture?.date
+        ? new Date(item.fixture.date).getTime()
+        : NaN;
+      const when = Number.isFinite(parsed) ? parsed : now;
+
+      if (now - when > maxAge) continue;
+
+      const key = `${name}|${club || ""}`;
+
+      if (seen.has(key) && seen.get(key) >= when) continue;
+
+      seen.set(key, when);
+
+      const questionable = item.player?.type === "Questionable";
+
+      updates.set(key, {
         name,
         club,
-        confidence: 5,
-        minutes: 0,
-        status: item.player?.reason || "Lesión"
+        confidence: questionable ? 30 : 5,
+        minutes: questionable ? 30 : 0,
+        status: item.player?.reason || item.player?.type || "Lesión"
       });
     }
   }
@@ -343,7 +361,7 @@ async function buildPayload(env) {
   return {
     ok: true,
     service: "FanTeam Data Engine",
-    version: "2.0.0",
+    version: "2.1.0",
     updatedAt: new Date().toISOString(),
     currentGW: currentGameweek(),
 
@@ -402,7 +420,7 @@ export default {
       return responseJSON({
         ok: true,
         service: "FanTeam Data Engine",
-        version: "2.0.0",
+        version: "2.1.0",
         currentGW: currentGameweek(),
         updatedAt: new Date().toISOString()
       });
@@ -410,7 +428,7 @@ export default {
 
     const cache = caches.default;
     const cacheKey = new Request(
-      `${url.origin}/__fanteam_cache_v6`,
+      `${url.origin}/__fanteam_cache_v7`,
       { method: "GET" }
     );
 
@@ -421,7 +439,23 @@ export default {
     }
 
     const payload = await buildPayload(env);
-    const response = responseJSON(payload, 200, 10800);
+
+    // Caché adaptativa: 15 min si hay partidos en ventana (kickoff entre
+    // 3 h atrás y 4 h adelante) para capturar alineaciones y marcadores;
+    // 3 h en el resto de la semana para cuidar las cuotas de las APIs.
+    const now = Date.now();
+    const matchWindow = payload.liveFixtures.some((match) => {
+      const kickoff = new Date(match.kickoff).getTime();
+
+      return (
+        Number.isFinite(kickoff) &&
+        kickoff >= now - 3 * 3600000 &&
+        kickoff <= now + 4 * 3600000
+      );
+    });
+
+    const ttl = matchWindow ? 900 : 10800;
+    const response = responseJSON(payload, 200, ttl);
 
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
 
