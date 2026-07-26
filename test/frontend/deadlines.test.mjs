@@ -25,3 +25,12 @@ test("returns the next open gameweek", () => {
   assert.equal(result.gameweek, 2);
   assert.equal(result.deadline, "2026-08-28T16:00:00.000Z");
 });
+
+test("ignores cancelled and unresolved postponed fixtures when deriving a deadline", () => {
+  const result = deadlines.derive([
+    { gameweek: 3, kickoff: "2026-09-04T12:00:00Z", status: "CANCELLED" },
+    { gameweek: 3, kickoff: "2026-09-04T13:00:00Z", status: { short: "PST" } },
+    { gameweek: 3, kickoff: "2026-09-04T17:30:00Z", status: "TIMED" },
+  ], []);
+  assert.equal(result[2], "2026-09-04T16:00:00.000Z");
+});

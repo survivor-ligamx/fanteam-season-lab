@@ -167,6 +167,24 @@
       return null;
     }
 
+    function fixtureCanSetDeadline(statusValue) {
+      const raw = statusValue && typeof statusValue === "object"
+        ? statusValue.short || statusValue.long || ""
+        : statusValue || "";
+      const status = String(raw).trim().toUpperCase().replace(/[^A-Z]/g, "");
+      return ![
+        "CANCELLED",
+        "CANCELED",
+        "CANC",
+        "SUSPENDED",
+        "SUSP",
+        "ABANDONED",
+        "ABD",
+        "POSTPONED",
+        "PST",
+      ].includes(status);
+    }
+
     function prepareResults(results, liveFixtures) {
       const live = {};
       const deadlines = {};
@@ -174,13 +192,51 @@
         Array.isArray(results) ? results : [],
         Array.isArray(liveFixtures) ? liveFixtures : [],
       );
-      const kickoffs = {};
+      const keyed = new Map();
+      const unkeyed = [];
+      const explicitGameweek = (raw) => {
+        const gameweek = Number(raw?.gameweek ?? raw?.gw);
+        return Number.isInteger(gameweek) && gameweek >= 1 && gameweek <= MAX_GAMEWEEK
+          ? gameweek
+          : null;
+      };
       for (const raw of combined) {
         if (!raw || typeof raw !== "object") continue;
         const homeClub = resolveClubCode(raw.home);
         const awayClub = resolveClubCode(raw.away);
         if (!homeClub || !awayClub) continue;
-        const gameweek = pairToGameweek(homeClub, awayClub);
+        const fixtureId = raw.id ?? raw.fixture?.id ?? raw.match?.id;
+        const kickoff = raw.kickoff || raw.utcDate || raw.date || null;
+        const kickoffTime = new Date(kickoff || "").getTime();
+        const key = Number.isFinite(kickoffTime)
+          ? `pair:${homeClub}:${awayClub}:${kickoffTime}`
+          : fixtureId != null && String(fixtureId).trim()
+            ? `id:${String(fixtureId).trim()}`
+            : null;
+        if (!key) {
+          unkeyed.push({ raw, homeClub, awayClub });
+          continue;
+        }
+        const previous = keyed.get(key);
+        if (!previous) {
+          keyed.set(key, { raw, homeClub, awayClub });
+          continue;
+        }
+        const previousGameweek = explicitGameweek(previous.raw);
+        const incomingGameweek = explicitGameweek(raw);
+        const merged = { ...previous.raw, ...raw };
+        if (previousGameweek && !incomingGameweek) merged.gameweek = previousGameweek;
+        keyed.set(key, { raw: merged, homeClub, awayClub });
+      }
+      const records = [...keyed.values(), ...unkeyed];
+      const kickoffs = {};
+      for (const { raw, homeClub, awayClub } of records) {
+        const providedGameweek = explicitGameweek(raw);
+        const gameweek = Number.isInteger(providedGameweek)
+          && providedGameweek >= 1
+          && providedGameweek <= MAX_GAMEWEEK
+          ? providedGameweek
+          : pairToGameweek(homeClub, awayClub);
         if (!gameweek) continue;
         const status = raw.status && typeof raw.status === "object"
           ? raw.status.short || raw.status.long || ""
@@ -202,7 +258,7 @@
           hg: homeGoals,
           ag: awayGoals,
         };
-        if (kickoff) {
+        if (kickoff && fixtureCanSetDeadline(status)) {
           const time = new Date(kickoff).getTime();
           if (
             Number.isFinite(time)

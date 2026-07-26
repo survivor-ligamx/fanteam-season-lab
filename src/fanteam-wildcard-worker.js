@@ -51,21 +51,76 @@ self.onmessage = (event) => {
     };
     if (!valid(ids)) throw new Error("la semilla más barata no es factible");
     let current = scoreSquad(ids).score;
-    for (let pass = 0; pass < 60; pass += 1) {
-      let gain = 0; let bestIndex = -1; let incomingId = null;
-      for (let index = 0; index < ids.length; index += 1) {
-        const outgoing = playerById.get(ids[index]);
-        for (const incoming of pool[outgoing.pos]) {
-          if (ids.includes(incoming.id)) continue;
-          const candidate = ids.slice(); candidate[index] = incoming.id;
-          if (!valid(candidate)) continue;
-          const next = scoreSquad(candidate).score;
-          if (next - current > gain) { gain = next - current; bestIndex = index; incomingId = incoming.id; }
+    const climb = () => {
+      for (let pass = 0; pass < 60; pass += 1) {
+        let bestGain = 1e-6; let bestIndex = -1; let bestIncoming = null;
+        for (let index = 0; index < ids.length; index += 1) {
+          const outgoing = playerById.get(ids[index]);
+          for (const incoming of pool[outgoing.pos]) {
+            if (ids.includes(incoming.id)) continue;
+            ids[index] = incoming.id;
+            if (valid(ids)) {
+              const next = scoreSquad(ids).score;
+              if (next - current > bestGain) {
+                bestGain = next - current;
+                bestIndex = index;
+                bestIncoming = incoming.id;
+              }
+            }
+            ids[index] = outgoing.id;
+          }
+        }
+        if (bestIndex < 0) break;
+        ids[bestIndex] = bestIncoming;
+        current = scoreSquad(ids).score;
+      }
+    };
+    climb();
+
+    const top = {};
+    for (const position of Object.keys(pool)) {
+      top[position] = pool[position]
+        .slice()
+        .sort((a, b) => scoreById.get(b.id) - scoreById.get(a.id))
+        .slice(0, 10);
+    }
+    let improved = true;
+    let guard = 0;
+    while (improved && guard < 4) {
+      improved = false;
+      guard += 1;
+      for (let firstIndex = 0; firstIndex < ids.length && !improved; firstIndex += 1) {
+        for (let secondIndex = firstIndex + 1; secondIndex < ids.length && !improved; secondIndex += 1) {
+          const firstOutgoing = playerById.get(ids[firstIndex]);
+          const secondOutgoing = playerById.get(ids[secondIndex]);
+          for (const firstIncoming of top[firstOutgoing.pos]) {
+            if (firstIncoming.id !== firstOutgoing.id && ids.includes(firstIncoming.id)) continue;
+            for (const secondIncoming of top[secondOutgoing.pos]) {
+              if (secondIncoming.id === firstIncoming.id) continue;
+              if (secondIncoming.id !== secondOutgoing.id && ids.includes(secondIncoming.id)) continue;
+              if (firstIncoming.id === firstOutgoing.id && secondIncoming.id === secondOutgoing.id) continue;
+              const oldFirst = ids[firstIndex];
+              const oldSecond = ids[secondIndex];
+              ids[firstIndex] = firstIncoming.id;
+              ids[secondIndex] = secondIncoming.id;
+              if (valid(ids)) {
+                const next = scoreSquad(ids).score;
+                if (next > current + 1e-6) {
+                  current = next;
+                  improved = true;
+                  break;
+                }
+              }
+              ids[firstIndex] = oldFirst;
+              ids[secondIndex] = oldSecond;
+            }
+            if (improved) break;
+          }
         }
       }
-      if (bestIndex < 0) break;
-      ids[bestIndex] = incomingId; current += gain;
+      if (improved) climb();
     }
+
     const result = scoreSquad(ids);
     self.postMessage({ type: "result", ids, cost: value(ids), score: result.score, xiPts: result.xiPts, formation: result.formation });
   } catch (error) {

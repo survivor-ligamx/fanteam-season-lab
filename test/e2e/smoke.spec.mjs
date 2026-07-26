@@ -58,6 +58,11 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
   await expect(page.locator("#market thead")).toContainText("PPM");
   await expect(page.locator("#market thead")).toContainText("Programa 3GW");
 
+  await page.locator('button[data-tab="wildcards"]').click();
+  await page.locator("#wcOptimize").click();
+  await expect(page.locator("#wcOptResult")).toContainText("Worker del navegador", { timeout: 20_000 });
+  await expect(page.locator("#wcOptResult .benchCard")).toHaveCount(15);
+
   await page.locator('button[data-tab="squad"]').click();
   const downloadPromise = page.waitForEvent("download");
   await page.locator("#exportSeason").click();
@@ -121,6 +126,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     plannerViewVersion: globalThis.FanTeamPlannerView?.VERSION,
     wildcardType: typeof globalThis.FanTeamWildcard,
     wildcardVersion: globalThis.FanTeamWildcard?.VERSION,
+    deadlinesType: typeof globalThis.FanTeamDeadlines,
+    deadlinesVersion: globalThis.FanTeamDeadlines?.VERSION,
   }))).toEqual({
     backupType: "object",
     backupVersion: 5,
@@ -152,6 +159,14 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     plannerViewVersion: "fanteam-planner-view-v1",
     wildcardType: "object",
     wildcardVersion: "fanteam-wildcard-v1",
+    deadlinesType: "object",
+    deadlinesVersion: "fanteam-deadlines-v1",
   });
+
+  await page.locator('button[data-tab="wildcards"]').click();
+  await page.locator("#wcOptimize").click();
+  await expect(page.locator("#wcOptResult")).toContainText("fallback seguro", { timeout: 20_000 });
+  await expect(page.locator("#wcOptResult .benchCard")).toHaveCount(15);
+
   expect(browserErrors).toEqual([]);
 });
