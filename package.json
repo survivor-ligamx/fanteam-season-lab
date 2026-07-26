@@ -9,9 +9,13 @@
   "scripts": {
     "test": "npm run test:frontend && npm run test:worker",
     "test:frontend": "node --test test/frontend/*.test.mjs",
-    "test:worker": "node worker/test/smoke.mjs"
+    "test:worker": "node worker/test/smoke.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:all": "npm test && npm run test:e2e"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "jsdom": "29.1.1"
   }
 }

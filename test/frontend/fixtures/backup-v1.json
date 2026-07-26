@@ -1,0 +1,22 @@
+{
+  "app": "fanteam-season-lab",
+  "v": 1,
+  "exportedAt": "2026-08-22T12:00:00.000Z",
+  "endpoint": "https://example.test/worker",
+  "state": {
+    "gw": 2,
+    "free": 1,
+    "squad": [4701029, 4701100, 4700735, 4700704, 4700742, 4700706, 4701156, 4700724, 4700675, 4700636, 4700634, 4700664, 4700673, 4700643, 4700762],
+    "history": [
+      {
+        "gw": 1,
+        "decision": "Guardar transferencia",
+        "captain": "Erling Haaland",
+        "free": 1
+      }
+    ],
+    "decision": null,
+    "wc1": false,
+    "wc2": false
+  }
+}
