@@ -6,17 +6,19 @@ const INDEX_PATH = fileURLToPath(new URL("../../index.html", import.meta.url));
 const STORAGE_MODULE_PATH = fileURLToPath(new URL("../../src/season-storage.js", import.meta.url));
 const SCORING_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-scoring.js", import.meta.url));
 const IMPORT_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-import.js", import.meta.url));
+const FINANCE_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-finance.js", import.meta.url));
 const PROJECTION_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-projection.js", import.meta.url));
 const TRANSFERS_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-transfers.js", import.meta.url));
 const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", import.meta.url));
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
 export async function createFrontendHarness() {
-  const [html, storageModuleSource, scoringModuleSource, importModuleSource, projectionModuleSource, transfersModuleSource, backupModuleSource] = await Promise.all([
+  const [html, storageModuleSource, scoringModuleSource, importModuleSource, financeModuleSource, projectionModuleSource, transfersModuleSource, backupModuleSource] = await Promise.all([
     readFile(INDEX_PATH, "utf8"),
     readFile(STORAGE_MODULE_PATH, "utf8"),
     readFile(SCORING_MODULE_PATH, "utf8"),
     readFile(IMPORT_MODULE_PATH, "utf8"),
+    readFile(FINANCE_MODULE_PATH, "utf8"),
     readFile(PROJECTION_MODULE_PATH, "utf8"),
     readFile(TRANSFERS_MODULE_PATH, "utf8"),
     readFile(BACKUP_MODULE_PATH, "utf8"),
@@ -68,6 +70,7 @@ export async function createFrontendHarness() {
   dom.window.eval(storageModuleSource);
   dom.window.eval(scoringModuleSource);
   dom.window.eval(importModuleSource);
+  dom.window.eval(financeModuleSource);
   dom.window.eval(projectionModuleSource);
   dom.window.eval(transfersModuleSource);
   dom.window.eval(backupModuleSource);

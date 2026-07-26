@@ -23,6 +23,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`src/season-storage.js`** — adaptador clásico para persistir estado, endpoint y caché con fallback en memoria cuando `localStorage` no está disponible.
 - **`src/fanteam-scoring.js`** — motor puro FanTeam v1 para validar estadísticas, normalizarlas y calcular puntos por posición.
 - **`src/fanteam-import.js`** — núcleo puro y namespaced para parsear CSV/JSON, emparejar jugadores y preparar actualizaciones de precios y resultados.
+- **`src/fanteam-finance.js`** — núcleo puro de valoración, coste de compra, poder adquisitivo y límite de jugadores por club.
 - **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
 - **`src/fanteam-transfers.js`** — recomendador puro de cambios simples/dobles y transiciones de plantilla, saldo y transferencias libres.
 - **`src/season-backup.js`** — módulo clásico y namespaced para crear/validar respaldos v5 y migrar respaldos históricos, cargable también mediante `file://`.
@@ -54,6 +55,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 ## Módulo de optimización
 
+- `FanTeamFinance` concentra la valoración actual, coste de compra, plusvalía, poder adquisitivo y máximo de tres jugadores por club. Consulta el estado y los precios mediante adaptadores para conservar actualizaciones en vivo sin acoplar el núcleo a la UI o `localStorage`.
 - `FanTeamTransfers` encapsula la búsqueda de cambios simples y dobles, conserva los umbrales y restricciones de presupuesto/club, y calcula las transiciones puras de plantilla, saldo y transferencias libres. Recibe jugadores, horizonte y validadores mediante adaptadores; el planner y el estado siguen en la app.
 - **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Pts/M€** (valor = 3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Para tu plantilla también muestra precio de compra y variación; es ordenable por cualquier columna (clic en el encabezado o selector).
 - **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra. Cada importación distinta guarda un corte local por jugador (máximo 64), permite ordenar por última subida/bajada y muestra los principales movimientos en Historial.
