@@ -32,7 +32,7 @@
       const movement = recommendation.type === "transfer"
         ? `+${recommendation.gain.toFixed(2)} pts ponderados · ${cost}`
         : "Acumular FT";
-      return `<div class="card week ${index === 0 ? "current" : ""}"><strong>GW${week.gw}</strong><div><b>${escapeHtml(transferDescription(recommendation))}</b><br><small>${movement} · saldo ${free} → ${week.freeAfter}</small></div><span>© ${escapeHtml(week.xi.cap.name)}<br><small>ⓥ ${escapeHtml(week.xi.vice.name)}</small></span><span>${week.points.toFixed(1)} pts<br><small>${week.xi.formation}</small></span></div>`;
+      return `<div class="card week ${index === 0 ? "current" : ""}"><strong>GW${week.gw}</strong><div><b>${escapeHtml(transferDescription(recommendation))}</b><br><small>${movement} · saldo ${free} → ${week.freeAfter}</small></div><span>© ${escapeHtml(week.xi.cap.name)}<br><small>(V) ${escapeHtml(week.xi.vice.name)}</small></span><span>${week.points.toFixed(1)} pts<br><small>${week.xi.formation}</small></span></div>`;
     }).join("");
 
     const first = plan.weeks[0];
