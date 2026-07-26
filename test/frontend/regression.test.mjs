@@ -420,3 +420,235 @@ test("planner encadena seis jornadas sin mutar la plantilla de origen", async (t
   assert.equal(plan.finalFree, plan.weeks.at(-1).freeAfter);
   assert.equal(plan.finalBank, plan.weeks.at(-1).bankAfter);
 });
+
+
+test("planner limita GW35–38 y conserva recomendaciones ya aplicadas", async (t) => {
+  const { dom } = await setup(t);
+  const saveRecommendation = { type: "save", gain: 0, reason: "Guardar" };
+  const planner = dom.window.FanTeamPlanner.create({
+    recommendationFor: () => saveRecommendation,
+    bestXI: (ids, gw) => ({ ids: ids.slice(), gw }),
+    captainedTotal: (xi) => xi.gw,
+    buyingPower: () => 100,
+    transferCount: (recommendation) => (
+      recommendation.type === "transfer" ? (recommendation.double ? 2 : 1) : 0
+    ),
+    idsAfterRecommendation: (ids, recommendation) => ids.map((id) => (
+      id === recommendation.out.id ? recommendation.inn.id : id
+    )),
+    transferBankAfter: (bank, recommendation) => (
+      bank + recommendation.out.price - recommendation.inn.price
+    ),
+    freeAfterWeek: (gw, free, used) => (
+      gw === 1 ? 1 : Math.min(37, Math.max(0, free - used) + 1)
+    ),
+  });
+
+  for (const start of [35, 36, 37, 38]) {
+    const plan = planner.simulateSixWeekPlan({
+      gameweek: start,
+      squad: [1],
+      free: 2,
+      bank: 1,
+    });
+    assert.equal(plan.start, start);
+    assert.equal(plan.end, 38);
+    assert.equal(plan.weeks.length, 39 - start);
+    assert.equal(plan.weeks.at(-1).gw, 38);
+  }
+
+  const applied = {
+    type: "transfer",
+    out: { id: 1, price: 5 },
+    inn: { id: 2, price: 6 },
+    gain: 2,
+    reason: "Movimiento fijado",
+    alreadyApplied: true,
+  };
+  const lockedPlan = planner.simulateSixWeekPlan({
+    gameweek: 36,
+    squad: [2],
+    free: 2,
+    bank: 0,
+    lockedRecommendation: applied,
+  });
+  assert.deepEqual(plain(lockedPlan.weeks[0].squad), [2]);
+  assert.equal(lockedPlan.weeks[0].bankAfter, 0);
+  assert.equal(lockedPlan.weeks[0].moves, 1);
+  assert.equal(lockedPlan.weeks[0].used, 1);
+
+  const gw1Plan = planner.simulateSixWeekPlan({
+    gameweek: 1,
+    squad: [1],
+    free: 1,
+    bank: 1,
+    lockedRecommendation: { ...applied, alreadyApplied: false },
+  });
+  assert.equal(gw1Plan.weeks[0].used, 0);
+  assert.equal(gw1Plan.weeks[0].freeAfter, 1);
+});
+
+test("aplicación pura valida bloqueo, saldo y FT sin mutar entradas", async (t) => {
+  const { api } = await setup(t);
+  const squad = buildWorstValidSquad(api);
+  const bank = Number((100 - api.value(squad)).toFixed(1));
+  const recommendation = api.recommendationFor(squad, 2, 2, true, 100);
+  assert.equal(recommendation.type, "transfer");
+  assert.equal(recommendation.double, true);
+
+  const state = {
+    ...plain(api.state),
+    gw: 2,
+    free: 2,
+    bank,
+    squad,
+    purchasePrices: Object.fromEntries(squad.map((id) => [id, api.byId(id).price])),
+    history: [],
+    decision: null,
+  };
+  const before = plain(state);
+  const applied = api.applyCurrentDecision({ state, recommendation });
+
+  assert.equal(applied.ok, true);
+  assert.equal(applied.code, "transfer-applied");
+  assert.equal(applied.count, 2);
+  assert.equal(applied.state.free, 2);
+  assert.equal(applied.state.decision.count, 2);
+  assert.deepEqual(plain(applied.state.squad), plain(api.idsAfterRecommendation(squad, recommendation)));
+  assert.equal(applied.state.bank, api.transferBankAfter(bank, recommendation));
+  assert.equal(applied.state.purchasePrices[recommendation.out.id], undefined);
+  assert.equal(applied.state.purchasePrices[recommendation.inn.id], recommendation.inn.price);
+  assert.equal(applied.state.purchasePrices[recommendation.out2.id], undefined);
+  assert.equal(applied.state.purchasePrices[recommendation.inn2.id], recommendation.inn2.price);
+  assert.deepEqual(plain(state), before);
+
+  const saved = api.applyCurrentDecision({
+    state,
+    recommendation: { type: "save", gain: 0, reason: "Guardar desde el plan" },
+  });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.code, "saved");
+  assert.equal(saved.state.free, 2);
+  assert.equal(saved.state.decision.reason, "Guardar desde el plan");
+
+  const locked = api.applyCurrentDecision({
+    state: { ...state, decision: { type: "save" } },
+    recommendation,
+  });
+  assert.deepEqual(plain(locked), { ok: false, code: "decision-locked" });
+
+  const alreadyApplied = api.applyCurrentDecision({
+    state,
+    recommendation: { ...recommendation, alreadyApplied: true },
+  });
+  assert.deepEqual(plain(alreadyApplied), { ok: false, code: "already-applied" });
+
+  const withoutEnoughFree = api.applyCurrentDecision({
+    state: { ...state, free: 1 },
+    recommendation,
+  });
+  assert.deepEqual(plain(withoutEnoughFree), { ok: false, code: "insufficient-free" });
+
+  const unaffordable = {
+    type: "transfer",
+    double: false,
+    out: recommendation.out,
+    inn: {
+      ...recommendation.inn,
+      price: recommendation.out.price + bank + .2,
+    },
+    gain: recommendation.gain,
+    reason: recommendation.reason,
+  };
+  const withoutEnoughBank = api.applyCurrentDecision({ state, recommendation: unaffordable });
+  assert.deepEqual(plain(withoutEnoughBank), { ok: false, code: "insufficient-bank" });
+  assert.deepEqual(plain(state), before);
+});
+
+test("adaptador persiste la decisión y difiere el consumo de FT al cierre", async (t) => {
+  const { api, dom } = await setup(t);
+  const squad = buildWorstValidSquad(api);
+  const bank = Number((100 - api.value(squad)).toFixed(1));
+  const recommendation = api.recommendationFor(squad, 2, 2, true, 100);
+  api.setState({
+    ...plain(api.state),
+    gw: 2,
+    free: 2,
+    bank,
+    squad,
+    history: [],
+    decision: null,
+  });
+
+  const result = api.applyDecisionToState(recommendation, "Decisión aplicada en prueba");
+  assert.equal(result.ok, true);
+  assert.equal(api.state.free, 2);
+  assert.equal(api.state.decision.count, 2);
+  assert.equal(dom.window.document.querySelector("#applyTransfer").disabled, true);
+  assert.equal(dom.window.document.querySelector("#saveTransfer").disabled, true);
+  assert.equal(dom.window.document.querySelector("#applyPlanFirst").style.display, "none");
+  assert.match(dom.window.document.querySelector("#toast").textContent, /Decisión aplicada/);
+
+  const persisted = JSON.parse(dom.window.localStorage.getItem("fanteam-season-lab-v1"));
+  assert.equal(persisted.free, 2);
+  assert.equal(persisted.decision.count, 2);
+  assert.deepEqual(persisted.squad, plain(api.state.squad));
+
+  const fixedState = plain(api.state);
+  const blocked = api.applyDecisionToState(recommendation);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.code, "decision-locked");
+  assert.deepEqual(plain(api.state), fixedState);
+  assert.match(dom.window.document.querySelector("#toast").textContent, /ya está fijada/);
+
+  dom.window.document.querySelector("#confirmWeek").click();
+  assert.equal(api.state.gw, 3);
+  assert.equal(api.state.free, 1);
+  assert.equal(api.state.decision, null);
+  assert.equal(api.state.history.at(-1).gw, 2);
+});
+
+
+
+test("GW1 permite ajustes consecutivos sin fijar ni consumir FT", async (t) => {
+  const { api, dom } = await setup(t);
+  const squad = buildWorstValidSquad(api, 1);
+  const bank = Number((100 - api.value(squad)).toFixed(1));
+  api.setState({
+    ...plain(api.state),
+    gw: 1,
+    free: 1,
+    bank,
+    squad,
+    history: [],
+    decision: null,
+  });
+
+  const first = api.recommendationFor(squad, 1, 1, true, 100);
+  assert.equal(first.type, "transfer");
+  const firstResult = api.applyPlanFirstDecision(first);
+  assert.equal(firstResult.ok, true);
+  assert.equal(api.state.free, 1);
+  assert.equal(api.state.decision, null);
+  const afterFirst = plain(api.state.squad);
+  assert.notDeepEqual(afterFirst, squad);
+
+  const second = api.recommendationFor(
+    api.state.squad,
+    1,
+    api.state.free,
+    true,
+    api.buyingPower(),
+  );
+  assert.equal(second.type, "transfer");
+  const secondResult = api.applyTransferToState(second);
+  assert.equal(secondResult.ok, true);
+  assert.equal(api.state.free, 1);
+  assert.equal(api.state.decision, null);
+  assert.notDeepEqual(plain(api.state.squad), afterFirst);
+
+  const persisted = JSON.parse(dom.window.localStorage.getItem("fanteam-season-lab-v1"));
+  assert.equal(persisted.free, 1);
+  assert.equal(persisted.decision, null);
+  assert.deepEqual(persisted.squad, plain(api.state.squad));
+});
