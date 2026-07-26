@@ -25,6 +25,7 @@ const workerPayload = {
     footballData: false,
     news: false,
     odds: false,
+    fpl: false,
   },
   errors: {},
 };
@@ -51,6 +52,11 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
   await page.locator('button[data-tab="market"]').click();
   await expect(page.locator("#market")).toHaveClass(/active/);
   await expect(page.locator("#marketBody tr")).toHaveCount(160);
+  await expect(page.locator("#marketTracker .marketTrackerItem")).toHaveCount(4);
+  await expect(page.locator("#market thead")).toContainText("xG");
+  await expect(page.locator("#market thead")).toContainText("CS GW");
+  await expect(page.locator("#market thead")).toContainText("PPM");
+  await expect(page.locator("#market thead")).toContainText("Programa 3GW");
 
   await page.locator('button[data-tab="squad"]').click();
   const downloadPromise = page.waitForEvent("download");
@@ -103,6 +109,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     oddsVersion: globalThis.FanTeamOdds?.VERSION,
     projectionType: typeof globalThis.FanTeamProjection,
     projectionVersion: globalThis.FanTeamProjection?.VERSION,
+    marketType: typeof globalThis.FanTeamMarket,
+    marketVersion: globalThis.FanTeamMarket?.VERSION,
     transfersType: typeof globalThis.FanTeamTransfers,
     transfersVersion: globalThis.FanTeamTransfers?.VERSION,
     weekType: typeof globalThis.FanTeamWeek,
@@ -132,6 +140,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     oddsVersion: "fanteam-odds-v1",
     projectionType: "object",
     projectionVersion: "fanteam-projection-v1",
+    marketType: "object",
+    marketVersion: "fanteam-market-v1",
     transfersType: "object",
     transfersVersion: "fanteam-transfers-v1",
     weekType: "object",

@@ -12,6 +12,8 @@ const DEADLINES = (
   .map((date) => `${date}T17:00:00Z`);
 
 
+const VERSION = "2.2.0";
+
 const TEAM_CODES = {
   Arsenal: "ARS",
   "Aston Villa": "AVL",
@@ -209,6 +211,13 @@ async function getNews(env) {
 }
 
 
+async function getFPLBootstrap() {
+  return safeRequest(
+    "https://fantasy.premierleague.com/api/bootstrap-static/"
+  );
+}
+
+
 function parsePlayerUpdates(apiFootball) {
   const updates = new Map();
 
@@ -350,22 +359,72 @@ function summarizeNews(result) {
 }
 
 
+function summarizeFPL(result, updatedAt) {
+  if (!result.ok || !Array.isArray(result.data?.elements)) return [];
+
+  const teams = new Map(
+    (result.data.teams || []).map((team) => [team.id, team])
+  );
+  const numeric = (value) => {
+    if (value == null || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+
+  return result.data.elements.map((element) => {
+    const team = teams.get(element.team);
+    const shortCode = team?.short_name === "COV"
+      ? "CVC"
+      : team?.short_name;
+    const club = TEAM_CODES[team?.name] || shortCode || null;
+
+    return {
+      id: element.id,
+      name: element.web_name
+        || `${element.first_name || ""} ${element.second_name || ""}`.trim(),
+      club,
+      reference: {
+        id: element.id,
+        points: numeric(element.total_points),
+        pointsPerGame: numeric(element.points_per_game),
+        minutes: numeric(element.minutes),
+        starts: numeric(element.starts),
+        cleanSheets: numeric(element.clean_sheets),
+        xg: numeric(element.expected_goals),
+        xg90: numeric(element.expected_goals_per_90),
+        xgc: numeric(element.expected_goals_conceded),
+        xgc90: numeric(element.expected_goals_conceded_per_90),
+        selectedBy: numeric(element.selected_by_percent),
+        transfersInEvent: numeric(element.transfers_in_event),
+        transfersOutEvent: numeric(element.transfers_out_event),
+        updatedAt
+      }
+    };
+  });
+}
+
+
 async function buildPayload(env) {
-  const [apiFootball, footballData, odds, news] = await Promise.all([
+  const [apiFootball, footballData, odds, news, fpl] = await Promise.all([
     getAPIFootball(env),
     getFootballData(env),
     getOdds(env),
-    getNews(env)
+    getNews(env),
+    getFPLBootstrap()
   ]);
+  const updatedAt = new Date().toISOString();
 
   return {
     ok: true,
     service: "FanTeam Data Engine",
-    version: "2.1.1",
-    updatedAt: new Date().toISOString(),
+    version: VERSION,
+    updatedAt,
     currentGW: currentGameweek(),
 
-    players: parsePlayerUpdates(apiFootball),
+    players: [
+      ...summarizeFPL(fpl, updatedAt),
+      ...parsePlayerUpdates(apiFootball)
+    ],
     liveFixtures: summarizeFixtures(apiFootball.fixtures),
     results: summarizeResults(footballData),
     odds: summarizeOdds(odds),
@@ -375,7 +434,8 @@ async function buildPayload(env) {
       apiFootball: apiFootball.fixtures.ok || apiFootball.injuries.ok,
       footballData: footballData.ok,
       odds: odds.ok,
-      news: news.ok
+      news: news.ok,
+      fpl: fpl.ok
     },
 
     errors: {
@@ -388,7 +448,9 @@ async function buildPayload(env) {
       odds:
         odds.ok ? null : odds.error,
       news:
-        news.ok ? null : news.error
+        news.ok ? null : news.error,
+      fpl:
+        fpl.ok ? null : fpl.error
     }
   };
 }
@@ -420,7 +482,7 @@ export default {
       return responseJSON({
         ok: true,
         service: "FanTeam Data Engine",
-        version: "2.1.1",
+        version: VERSION,
         currentGW: currentGameweek(),
         updatedAt: new Date().toISOString()
       });
@@ -428,7 +490,7 @@ export default {
 
     const cache = caches.default;
     const cacheKey = new Request(
-      `${url.origin}/__fanteam_cache_v8`,
+      `${url.origin}/__fanteam_cache_v9`,
       { method: "GET" }
     );
 
