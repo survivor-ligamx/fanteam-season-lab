@@ -59,11 +59,15 @@
       fixture,
       byId,
       getOdds,
+      differentialEligible = () => true,
       maxGameweek = MAX_GAMEWEEK,
     } = options || {};
     if (typeof fixture !== "function") throw new Error("fixture es obligatorio");
     if (typeof byId !== "function") throw new Error("byId es obligatorio");
     if (typeof getOdds !== "function") throw new Error("getOdds es obligatorio");
+    if (typeof differentialEligible !== "function") {
+      throw new Error("differentialEligible debe ser una función");
+    }
 
     function projection(player, gameweek) {
       const scheduled = fixture(player, gameweek);
@@ -169,6 +173,7 @@
       const differential = ranked
         .filter((candidate) => (
           candidate.p.id !== best.cap.id
+          && differentialEligible(candidate.p)
           && candidate.metric.selectedBy != null
           && candidate.metric.selectedBy <= 15
           && candidate.metric.ev >= best.capMetric.ev * .72

@@ -112,6 +112,54 @@
     return empty;
   }
 
+  function lowCeilingMidfielder(player) {
+    const reference = normalizeReference(player?.reference);
+    const pointsPerGame = reference?.pointsPerGame;
+    const xg90 = reference?.xg90;
+    const price = finite(player?.price);
+    const minutes = reference?.minutes;
+    const empty = {
+      isRisk: false,
+      kind: null,
+      label: null,
+      detail: "Sin evidencia suficiente de mediocampista de bajo techo.",
+      penalty: 0,
+      strength: 0,
+      sampleMinutes: minutes,
+      pointsPerGame,
+      xg90,
+      price,
+    };
+    if (
+      player?.pos !== "MID"
+      || price == null
+      || price > 5.5
+      || minutes < 900
+      || pointsPerGame == null
+      || xg90 == null
+      || pointsPerGame > 3.2
+      || xg90 > .10
+    ) return empty;
+    const reliability = clamp((minutes - 450) / 1350, 0, 1);
+    const scoringGap = clamp((3.2 - pointsPerGame) / 1.2, 0, 1);
+    const attackingGap = clamp((.10 - xg90) / .10, 0, 1);
+    const strength = reliability * (.5 + .25 * scoringGap + .25 * attackingGap);
+    const penalty = rounded(1.25 * strength, 3) || 0;
+    if (penalty < .2) return empty;
+    return {
+      isRisk: true,
+      kind: "low-ceiling-midfielder",
+      label: "MID defensivo · bajo techo",
+      detail: `Perfil compatible con medio defensivo barato: ${price.toFixed(1)}M, ${pointsPerGame.toFixed(1)} pts/partido y ${xg90.toFixed(2)} xG/90 en ${Math.round(minutes)} minutos. La titularidad por sí sola no compensa la baja producción ofensiva.`,
+      penalty,
+      strength: rounded(strength, 3),
+      sampleMinutes: minutes,
+      pointsPerGame,
+      xg90,
+      price,
+    };
+  }
+
   function differentialEdge(player, projectedPoints = null) {
     const reference = normalizeReference(player?.reference);
     const selectedBy = reference?.selectedBy;
@@ -126,6 +174,7 @@
       detail: "Sin evidencia suficiente de diferencial de calidad.",
     };
     if (selectedBy == null || selectedBy < 0 || selectedBy > 15) return empty;
+    if (lowCeilingMidfielder(player).isRisk) return empty;
     const positional = positionalEdge(player);
     const performanceQuality = pointsPerGame == null
       ? 0
@@ -488,6 +537,7 @@
           isDifferential: false,
           differentialEdge: differentialEdge(player, h6),
           positionalEdge: positionalEdge(player),
+          lowCeilingMidfielder: lowCeilingMidfielder(player),
           netTransfers,
         });
         if (byPosition[player.pos]) byPosition[player.pos].push(player);
@@ -525,6 +575,8 @@
           let tag = { t: "—", c: "tagNeutral" };
           if (availability(player) < 1 || metric.h3 <= 0.4) {
             tag = { t: "EVITAR", c: "tagEvitar" };
+          } else if (metric.lowCeilingMidfielder.isRisk) {
+            tag = { t: "MID BAJO TECHO", c: "tagLowCeiling" };
           } else if (metric.positionalEdge.isEdge && metric.isDifferential) {
             tag = { t: "POS.+DIF", c: "tagOop" };
           } else if (metric.positionalEdge.isEdge) {
@@ -596,6 +648,7 @@
     MAX_GAMEWEEK,
     create,
     differentialEdge,
+    lowCeilingMidfielder,
     marketGoalModel,
     positionalEdge,
   });
