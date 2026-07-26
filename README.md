@@ -25,6 +25,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`src/fanteam-import.js`** — núcleo puro y namespaced para parsear CSV/JSON, emparejar jugadores y preparar actualizaciones de precios y resultados.
 - **`src/fanteam-history.js`** — transición pura de resultados reales y evaluación histórica de precisión, capitanía y transferencias.
 - **`src/fanteam-finance.js`** — núcleo puro de valoración, coste de compra, poder adquisitivo y límite de jugadores por club.
+- **`src/fanteam-state.js`** — normalizador puro y compatible del estado de temporada: reconstruye respaldos y localStorage, sanea históricos, precios, resultados y decisiones, y devuelve los precios derivados sin mutar la entrada ni el catálogo.
 - **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
 - **`src/fanteam-transfers.js`** — recomendador puro de cambios simples/dobles y transiciones de plantilla, saldo y transferencias libres.
 - **`src/fanteam-week.js`** — cierre semanal puro y atómico: congela historial/valor, consume FT, avanza la jornada y finaliza GW38 sin mutar el estado.
@@ -103,7 +104,7 @@ Los marcadores del Worker no incluyen todas las acciones necesarias. Por eso los
 
 ## Respaldo de temporada
 
-Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios, pronósticos congelados y puntos reales) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON v5** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos v1/v2/v3/v4 siguen siendo compatibles mediante migración automática.
+Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios, pronósticos congelados y puntos reales) vive en `localStorage`. `FanTeamState` normaliza ese estado de forma pura y devuelve por separado los precios base/actuales; un adaptador mínimo de `index.html` los aplica al catálogo mutable antes de persistir o renderizar. En **Plantilla → Controles** puedes **exportar un JSON v5** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos v1/v2/v3/v4 siguen siendo compatibles mediante migración automática.
 
 En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugadores y volver a importarla actualizada. También se acepta CSV con encabezados `id,name,club,price`; el ID tiene prioridad y el fallback nombre+club solo se aplica cuando la coincidencia es única.
 
