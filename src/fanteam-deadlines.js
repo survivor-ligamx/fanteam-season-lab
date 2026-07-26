@@ -10,9 +10,28 @@
     return Number.isFinite(date.getTime()) ? date : null;
   }
 
+  function fixtureCanSetDeadline(item) {
+    const rawStatus = item?.status && typeof item.status === "object"
+      ? item.status.short || item.status.long || ""
+      : item?.status || "";
+    const status = String(rawStatus).trim().toUpperCase().replace(/[^A-Z]/g, "");
+    return ![
+      "CANCELLED",
+      "CANCELED",
+      "CANC",
+      "SUSPENDED",
+      "SUSP",
+      "ABANDONED",
+      "ABD",
+      "POSTPONED",
+      "PST",
+    ].includes(status);
+  }
+
   function derive(results, fallback = []) {
     const earliest = new Map();
     for (const item of Array.isArray(results) ? results : []) {
+      if (!fixtureCanSetDeadline(item)) continue;
       const gw = Number(item?.gameweek ?? item?.gw);
       const kickoff = validDate(item?.kickoff ?? item?.utcDate ?? item?.date);
       if (!Number.isInteger(gw) || gw < 1 || gw > MAX_GAMEWEEK || !kickoff) continue;
