@@ -52,9 +52,22 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **Planner encadenado 6GW:** parte de la plantilla y las transferencias libres actuales, aplica virtualmente cada recomendación antes de calcular la siguiente jornada, recalcula XI/capitán/vice, acumula las FT y compara la proyección total contra conservar el equipo. Solo permite aplicar el primer movimiento; el resto se recalcula con datos nuevos.
 - **Mejor XI:** 8 formaciones evaluadas; capitán y vice por valor esperado, combinando la proyección base con probabilidades `h2h` y `totals` normalizadas de varias casas. La frescura se mide con `last_update` de cada mercado; si no hay mercados con menos de 6 horas, utiliza automáticamente la proyección base.
 
+## Calibración con puntos reales
+
+Al confirmar una jornada, la app congela el XI, capitán, vice, transferencias y proyección individual de los 580 jugadores. En **Historial** puedes descargar una plantilla e importar puntos reales de jornadas ya confirmadas mediante JSON o CSV con columnas `gw,id,name,club,points,minutes,played`. En JSON, `points: null` elimina un resultado previamente cargado para permitir correcciones.
+
+La evaluación calcula:
+
+- **MAE, RMSE y sesgo** entre puntos proyectados y reales para todos los registros importados.
+- **Puntuación real del XI + capitán**, usando al vice si el capitán figura como `played: false`.
+- **Acierto de capitán** y puntos de arrepentimiento frente al mejor jugador real del XI.
+- **Retorno de transferencias a 3GW**, con las mismas ponderaciones `[1, .65, .35]` del modelo.
+
+Los puntos fantasy no se derivan de los marcadores del Worker: deben proceder de FanTeam u otra exportación fiable y se conservan localmente.
+
 ## Respaldo de temporada
 
-Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios de compra, precios importados e historial de valor) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON v2** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos anteriores siguen siendo compatibles mediante migración automática.
+Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios, pronósticos congelados y puntos reales) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON v3** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos v1/v2 siguen siendo compatibles mediante migración automática.
 
 En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugadores y volver a importarla actualizada. También se acepta CSV con encabezados `id,name,club,price`; el ID tiene prioridad y el fallback nombre+club solo se aplica cuando la coincidencia es única.
 
@@ -72,5 +85,5 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 - ✅ v2.1.1 desplegada en Cloudflare; The Odds API activa y validada con mercados de Premier League.
 - ✅ Capitán y vice por valor esperado con momios normalizados y fallback automático al modelo base.
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
-- ✅ Seguimiento de valor con precios de compra, importación JSON/CSV, plusvalía/pérdida, saldo, poder de compra, cortes semanales y respaldos v2 compatibles.
-- ⬜ Puntos reales por jornada y tracking de aciertos del modelo.
+- ✅ Seguimiento de valor con precios de compra, importación JSON/CSV, plusvalía/pérdida, saldo, poder de compra, cortes semanales y respaldos compatibles.
+- ✅ Puntos reales por jornada con pronósticos congelados, MAE/sesgo, acierto de capitán y retorno de transferencias a 3GW.
