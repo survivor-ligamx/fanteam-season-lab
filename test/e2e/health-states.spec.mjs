@@ -19,6 +19,14 @@ const PARTIAL_PAYLOAD = {
     odds: false,
     fpl: true,
   },
+  sourceMeta: {
+    apiFootball: {
+      cacheStatus: "stale-cache",
+      stale: true,
+      staleLineupsDropped: true,
+      coordinator: "durable-object",
+    },
+  },
   errors: { news: "timeout", odds: "HTTP 401" },
 };
 
@@ -56,6 +64,9 @@ test("conserva la superficie de salud cuando el payload remoto es parcial", asyn
     await expect(page.locator(row)).toBeVisible();
     await expect(page.locator(row)).not.toHaveText("");
   }
+  await expect(page.locator("#srcLineups")).toContainText("Snapshot stale");
+  await expect(page.locator("#srcLineups")).toContainText("alineaciones confirmadas descartadas");
+  await expect(page.locator("#srcLineups")).not.toHaveClass(/live/);
 
   expect(browserErrors).toEqual([]);
 });

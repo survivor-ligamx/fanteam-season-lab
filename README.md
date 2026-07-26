@@ -121,17 +121,17 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 ## Desarrollo y deploy
 
 - **App:** edita `index.html` y haz push a `main` — GitHub Pages publica automáticamente. Sin build.
-- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez. `npm test` corre las regresiones del dominio en JSDOM y el smoke del Worker; `npm run test:e2e:install` instala Chromium y `npm run test:e2e` ejecuta el smoke de navegador real. `npm run test:all` combina ambas suites. También puedes usar `npm run test:frontend` o `npm run test:worker` por separado.
-- **CI:** GitHub Actions ejecuta `npm ci`, las regresiones y el smoke Chromium en cada pull request y push a `main`; conserva trazas, capturas y video cuando falla el navegador.
+- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez. `npm test` corre las regresiones del dominio en JSDOM y el smoke del Worker; `npm run test:e2e:install` instala Chromium, `npm run test:e2e` ejecuta el smoke local y `npm run test:production` valida la aplicación realmente desplegada. `npm run test:all` combina las suites locales. También puedes usar `npm run test:frontend` o `npm run test:worker` por separado.
+- **CI:** GitHub Actions ejecuta `npm ci`, las regresiones y el smoke Chromium en cada pull request y push a `main`; conserva trazas, capturas y video cuando falla el navegador. El workflow de producción se dispara con cambios del frontend/Worker y diariamente: verifica contrato/CORS del Worker y prueba GitHub Pages con `FanTeamDeadlines` y el Web Worker real.
 - **Worker:** ver `worker/README.md` (deploy con `wrangler deploy`, secrets con `wrangler secret put`).
 - Prueba local: abre `index.html` en el navegador; el “modo seguro” funciona sin red.
 
 ## Estado y pendientes
 
 - ✅ App nueva publicada con módulo de optimización completo.
-- ✅ Código del Worker v2.2.0 respaldado en `worker/src/index.js`, con caché v9 adaptativa, lesiones con caducidad, referencia pública FPL y suite smoke (`node worker/test/smoke.mjs`).
+- ✅ Código del Worker v2.3.1 respaldado en `worker/src/index.js`, con caché de payload v11, Durable Object para coordinar API-Football, snapshot stale sin alineaciones vencidas, backoff para 429, lesiones con caducidad, referencia pública FPL y suite smoke (`node worker/test/smoke.mjs`).
 - ✅ `players[]`: combina referencias FPL de rendimiento/xG/CS/transferencias con lesiones y alineaciones API-Football; cada registro se empareja de forma segura sin mezclar los minutos históricos con la estimación de la próxima aparición.
-- ✅ Worker v2.2.0 preparado para Cloudflare; The Odds API alimenta mercados y FPL alimenta la analítica de Mercado.
+- ✅ Worker v2.3.1 preparado para Cloudflare; The Odds API alimenta mercados, FPL alimenta la analítica de Mercado y API-Football conserva datos válidos durante límites transitorios de cuota.
 - ✅ Capitán y vice por valor esperado con momios normalizados y fallback automático al modelo base.
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
 - ✅ Seguimiento de valor con precios de compra, historial individual de hasta 64 cortes importados, ranking de subidas/bajadas, plusvalía/pérdida, saldo, poder de compra y respaldos compatibles.
@@ -139,4 +139,4 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 - ✅ El optimizador de Wildcard corre en un Web Worker real bajo HTTP, valida nuevamente el resultado en el dominio principal y conserva fallback síncrono para `file://`, navegadores sin Worker, errores, timeout o respuestas inválidas.
 - ✅ Los cierres se derivan del kickoff oficial más temprano menos 90 minutos, con fuente visible en la UI, fallback incorporado por jornada y avance monotónico de GW.
 - ✅ Suite de regresión frontend con escenarios sobre render, scoring, migraciones v1-v5, precios, respaldo, recomendador, planner, aplicación/validación de decisiones, mejor XI y optimizador de Wildcard; incluye integración focalizada para Worker válido/ausente/inválido y deadlines derivados/fallback. `npm test` también ejecuta el smoke del Worker.
-- ✅ Smoke E2E en Chromium para carga HTTP y `file://`, navegación, XI/banca, planner, mercado, ejecución real del Web Worker de Wildcard y exportación/importación de respaldos, automatizado en GitHub Actions.
+- ✅ Smoke E2E en Chromium para carga HTTP y `file://`, navegación, XI/banca, planner, mercado, ejecución real del Web Worker de Wildcard y exportación/importación de respaldos. Un smoke diario adicional valida contrato/CORS del Worker y la app desplegada en GitHub Pages.

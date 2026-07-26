@@ -42,7 +42,10 @@ test("carga el dominio real sin ejecutar sincronización ni render inicial", asy
   assert.equal(typeof dom.window.FanTeamSeasonBackup.parse, "function");
   assert.equal(dom.window.localStorage.getItem("fanteam-data-endpoint"), null);
   const freshUntil = "2026-08-21T18:00:00.000Z";
-  assert.equal(api.dataPreparePayload({ freshUntil }, 1).freshUntil, freshUntil);
+  const sourceMeta = { apiFootball: { stale: true, cacheStatus: "stale-cache" } };
+  const prepared = api.dataPreparePayload({ freshUntil, sourceMeta }, 1);
+  assert.equal(prepared.freshUntil, freshUntil);
+  assert.deepEqual(plain(prepared.sourceMeta), sourceMeta);
 });
 
 test("catálogo mantiene identidad, clubes y campos estructurales válidos", async (t) => {
