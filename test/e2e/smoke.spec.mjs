@@ -71,7 +71,7 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
   expect(browserErrors).toEqual([]);
 });
 
-test("abre la aplicación y su módulo de respaldo mediante file://", async ({ page }) => {
+test("abre la aplicación y sus módulos clásicos mediante file://", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-08-20T12:00:00.000Z") });
   const browserErrors = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
@@ -89,11 +89,15 @@ test("abre la aplicación y su módulo de respaldo mediante file://", async ({ p
     backupVersion: globalThis.FanTeamSeasonBackup?.VERSION,
     scoringType: typeof globalThis.FanTeamScoring,
     scoringVersion: globalThis.FanTeamScoring?.VERSION,
+    importType: typeof globalThis.FanTeamImport,
+    importVersion: globalThis.FanTeamImport?.VERSION,
   }))).toEqual({
     backupType: "object",
     backupVersion: 5,
     scoringType: "object",
     scoringVersion: "fanteam-v1",
+    importType: "object",
+    importVersion: "fanteam-import-v1",
   });
   expect(browserErrors).toEqual([]);
 });
