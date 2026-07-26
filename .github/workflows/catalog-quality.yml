@@ -1,0 +1,24 @@
+name: Catalog quality
+
+on:
+  pull_request:
+    paths:
+      - "index.html"
+      - "scripts/validate-catalog.mjs"
+      - ".github/workflows/catalog-quality.yml"
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "scripts/validate-catalog.mjs"
+      - ".github/workflows/catalog-quality.yml"
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/validate-catalog.mjs
