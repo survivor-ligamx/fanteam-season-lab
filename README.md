@@ -20,6 +20,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 ```
 
 - **`index.html`** — app estática sin build: contiene los datos de 580 jugadores, calendario, modelo de proyección, optimizadores y las 10 pestañas de la UI en español.
+- **`src/season-storage.js`** — adaptador clásico para persistir estado, endpoint y caché con fallback en memoria cuando `localStorage` no está disponible.
 - **`src/season-backup.js`** — módulo clásico y namespaced para crear/validar respaldos v5 y migrar respaldos históricos, cargable también mediante `file://`.
 - **`legacy/index-v1.html`** — versión anterior de la app (solo referencia histórica).
 - **`worker/`** — configuración y respaldo del código del Cloudflare Worker (ver `worker/README.md`).
