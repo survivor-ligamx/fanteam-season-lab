@@ -97,6 +97,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     projectionVersion: globalThis.FanTeamProjection?.VERSION,
     transfersType: typeof globalThis.FanTeamTransfers,
     transfersVersion: globalThis.FanTeamTransfers?.VERSION,
+    plannerType: typeof globalThis.FanTeamPlanner,
+    plannerVersion: globalThis.FanTeamPlanner?.VERSION,
     wildcardType: typeof globalThis.FanTeamWildcard,
     wildcardVersion: globalThis.FanTeamWildcard?.VERSION,
   }))).toEqual({
@@ -112,6 +114,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     projectionVersion: "fanteam-projection-v1",
     transfersType: "object",
     transfersVersion: "fanteam-transfers-v1",
+    plannerType: "object",
+    plannerVersion: "fanteam-planner-v1",
     wildcardType: "object",
     wildcardVersion: "fanteam-wildcard-v1",
   });
