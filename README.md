@@ -26,6 +26,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`src/fanteam-history.js`** — transición pura de resultados reales y evaluación histórica de precisión, capitanía y transferencias.
 - **`src/fanteam-finance.js`** — núcleo puro de valoración, coste de compra, poder adquisitivo y límite de jugadores por club.
 - **`src/fanteam-state.js`** — normalizador puro y compatible del estado de temporada: reconstruye respaldos y localStorage, sanea históricos, precios, resultados y decisiones, y devuelve los precios derivados sin mutar la entrada ni el catálogo.
+- **`src/fanteam-data.js`** — ingestor puro del payload del Worker: resuelve clubes y jugadores, prepara confianza/minutos/estado, normaliza marcadores y deriva deadlines/GW sin tocar catálogo, estado, caché ni DOM.
 - **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
 - **`src/fanteam-transfers.js`** — recomendador puro de cambios simples/dobles y transiciones de plantilla, saldo y transferencias libres.
 - **`src/fanteam-week.js`** — cierre semanal puro y atómico: congela historial/valor, consume FT, avanza la jornada y finaliza GW38 sin mutar el estado.
@@ -49,6 +50,8 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 | `odds[]` | `{home, away, kickoff, bookmakers[].markets[]}` | normaliza `h2h` y `totals` sin margen para ajustar el valor esperado de capitán/vice; fallback al modelo base si faltan datos frescos |
 | `news[]` | `{title, description, url, source, publishedAt}` | pestaña Noticias con análisis de relevancia (clubes, jugadores, lesiones) |
 | `sources{}` / `errors{}` | booleans / strings | panel de observabilidad en Motor automático |
+
+`FanTeamData` interpreta este contrato de forma pura y devuelve planes de actualización, marcadores, deadlines y jornada detectada. Los adaptadores de `index.html` conservan los efectos: mutar `PLAYERS`/`SYNC`, avanzar el estado sin retroceder, guardar caché/localStorage y renderizar la UI.
 
 ## Modelo de proyección
 
