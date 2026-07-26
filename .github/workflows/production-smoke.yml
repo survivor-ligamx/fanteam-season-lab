@@ -41,6 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           ready=false
+          stable=0
           for attempt in $(seq 1 30); do
             health="$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "$WORKER_URL/health" || true)"
             payload="$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "$WORKER_URL/latest" || true)"
@@ -52,9 +53,16 @@ jobs:
                  and .sourceMeta.apiFootball.coordinator == "durable-object"
                  and .sourceMeta.apiFootball.cacheStatus != "coordinator-error"
                  and (.errors | has("apiFootballCache"))' >/dev/null 2>&1; then
-              ready=true
-              break
+              stable=$((stable + 1))
+              if test "$stable" -ge 3; then
+                ready=true
+                break
+              fi
+              echo "Worker expone el build esperado ($stable/3 comprobaciones estables)"
+              sleep 2
+              continue
             fi
+            stable=0
             echo "Worker todavía no expone el build esperado (intento $attempt/30)"
             sleep 10
           done
@@ -83,7 +91,7 @@ jobs:
             and .sourceMeta.apiFootball.cacheStatus != "coordinator-error"
             and (.errors | type == "object")
             and (.errors | has("apiFootballCache"))
-            and (.freshUntil | fromdateiso8601 > now)
+            and ((.freshUntil | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) > now)
           '
           count="$(echo "$payload" | jq '.players | length')"
           test "$count" -gt 0
