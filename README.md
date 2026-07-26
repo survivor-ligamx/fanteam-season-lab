@@ -47,7 +47,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 ## Módulo de optimización
 
 - **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Pts/M€** (valor = 3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Para tu plantilla también muestra precio de compra y variación; es ordenable por cualquier columna (clic en el encabezado o selector).
-- **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra, y guarda un corte al confirmar cada jornada.
+- **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra. Cada importación distinta guarda un corte local por jugador (máximo 64), permite ordenar por última subida/bajada y muestra los principales movimientos en Historial.
 - **Optimizador de Wildcard (Comodines):** construye la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. Corre en el navegador en <1 s.
 - **Planner encadenado 6GW:** parte de la plantilla y las transferencias libres actuales, aplica virtualmente cada recomendación antes de calcular la siguiente jornada, recalcula XI/capitán/vice, acumula las FT y compara la proyección total contra conservar el equipo. Solo permite aplicar el primer movimiento; el resto se recalcula con datos nuevos.
 - **Mejor XI:** 8 formaciones evaluadas; capitán y vice por valor esperado, combinando la proyección base con probabilidades `h2h` y `totals` normalizadas de varias casas. La frescura se mide con `last_update` de cada mercado; si no hay mercados con menos de 6 horas, utiliza automáticamente la proyección base.
@@ -80,7 +80,7 @@ Los marcadores del Worker no incluyen todas las acciones necesarias. Por eso los
 
 ## Respaldo de temporada
 
-Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios, pronósticos congelados y puntos reales) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON v4** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos v1/v2/v3 siguen siendo compatibles mediante migración automática.
+Tu temporada (plantilla, historial, jornada, wildcards, saldo, precios, pronósticos congelados y puntos reales) vive en `localStorage`. En **Plantilla → Controles** puedes **exportar un JSON v5** de respaldo e **importarlo** en cualquier navegador/dispositivo. Los respaldos v1/v2/v3/v4 siguen siendo compatibles mediante migración automática.
 
 En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugadores y volver a importarla actualizada. También se acepta CSV con encabezados `id,name,club,price`; el ID tiene prioridad y el fallback nombre+club solo se aplica cuando la coincidencia es única.
 
@@ -98,5 +98,5 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 - ✅ v2.1.1 desplegada en Cloudflare; The Odds API activa y validada con mercados de Premier League.
 - ✅ Capitán y vice por valor esperado con momios normalizados y fallback automático al modelo base.
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
-- ✅ Seguimiento de valor con precios de compra, importación JSON/CSV, plusvalía/pérdida, saldo, poder de compra, cortes semanales y respaldos compatibles.
+- ✅ Seguimiento de valor con precios de compra, historial individual de hasta 64 cortes importados, ranking de subidas/bajadas, plusvalía/pérdida, saldo, poder de compra y respaldos compatibles.
 - ✅ Puntos reales por jornada con motor de scoring FanTeam v1, pronósticos congelados, MAE/RMSE/sesgo, acierto de capitán y retorno de transferencias a 3GW.
