@@ -8,6 +8,7 @@ const SCORING_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-scoring.js"
 const IMPORT_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-import.js", import.meta.url));
 const HISTORY_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-history.js", import.meta.url));
 const FINANCE_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-finance.js", import.meta.url));
+const STATE_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-state.js", import.meta.url));
 const PROJECTION_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-projection.js", import.meta.url));
 const TRANSFERS_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-transfers.js", import.meta.url));
 const WEEK_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-week.js", import.meta.url));
@@ -18,13 +19,14 @@ const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", i
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
 export async function createFrontendHarness() {
-  const [html, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, projectionModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, backupModuleSource] = await Promise.all([
+  const [html, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, stateModuleSource, projectionModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, backupModuleSource] = await Promise.all([
     readFile(INDEX_PATH, "utf8"),
     readFile(STORAGE_MODULE_PATH, "utf8"),
     readFile(SCORING_MODULE_PATH, "utf8"),
     readFile(IMPORT_MODULE_PATH, "utf8"),
     readFile(HISTORY_MODULE_PATH, "utf8"),
     readFile(FINANCE_MODULE_PATH, "utf8"),
+    readFile(STATE_MODULE_PATH, "utf8"),
     readFile(PROJECTION_MODULE_PATH, "utf8"),
     readFile(TRANSFERS_MODULE_PATH, "utf8"),
     readFile(WEEK_MODULE_PATH, "utf8"),
@@ -51,6 +53,7 @@ export async function createFrontendHarness() {
       createSeasonBackup,
       parseSeasonBackup,
       migrateState,
+      stateNormalize: STATE_MODEL.normalize,
       normalizeFanTeamStats,
       calculateFanTeamPoints,
       parsePriceInput,
@@ -94,6 +97,7 @@ export async function createFrontendHarness() {
   dom.window.eval(importModuleSource);
   dom.window.eval(historyModuleSource);
   dom.window.eval(financeModuleSource);
+  dom.window.eval(stateModuleSource);
   dom.window.eval(projectionModuleSource);
   dom.window.eval(transfersModuleSource);
   dom.window.eval(weekModuleSource);
