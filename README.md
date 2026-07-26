@@ -16,6 +16,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 │  corren en el navegador.     │        │  · API-Football (lesiones)       │
 │  Estado en localStorage.     │        │  · GNews (noticias)              │
 └──────────────────────────────┘        │  · The Odds API (momios)         │
+                                        │  · FPL público (xG/CS/rendimiento)│
                                         └─────────────────────────────────┘
 ```
 
@@ -29,6 +30,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`src/fanteam-data.js`** — ingestor puro del payload del Worker: resuelve clubes y jugadores, prepara confianza/minutos/estado, normaliza marcadores y deriva deadlines/GW sin tocar catálogo, estado, caché ni DOM.
 - **`src/fanteam-odds.js`** — núcleo puro de momios: valida frescura, asigna jornadas, elimina margen de `h2h`/`totals` y agrega probabilidades multicasa sin leer reloj, estado, caché, almacenamiento ni DOM.
 - **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
+- **`src/fanteam-market.js`** — analítica pura de Mercado: conserva proyecciones/ranks/etiquetas, construye el programa 3GW, resume puntos/PP/PPM/minutos/partidos, calcula CS próxima GW con Poisson y genera trackers sin acceder a DOM, red, reloj, almacenamiento ni estado global.
 - **`src/fanteam-transfers.js`** — recomendador puro de cambios simples/dobles y transiciones de plantilla, saldo y transferencias libres.
 - **`src/fanteam-week.js`** — cierre semanal puro y atómico: congela historial/valor, consume FT, avanza la jornada y finaliza GW38 sin mutar el estado.
 - **`src/fanteam-planner.js`** — simulador puro del plan encadenado de seis jornadas y transición pura para aplicar su decisión actual, con presupuesto, FT y baseline sin transferencias.
@@ -46,13 +48,13 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 | `ok`, `service`, `version` | metadatos | validación de respuesta |
 | `updatedAt` | ISO date | frescura mostrada en la UI |
 | `currentGW` | number | jornada activa (nunca retrocede la local) |
-| `players[]` | `{id? \| name+club, confidence?, minutes?, status?}` | actualiza confianza/minutos/estado con emparejamiento seguro por id, nombre o apellido+club |
+| `players[]` | `{id? \| name+club, confidence?, minutes?, status?, reference?}` | actualiza confianza/minutos/estado y adjunta referencia FPL saneada (`points`, `pointsPerGame`, `minutes`, `starts`, `cleanSheets`, xG/xGC y transferencias) con emparejamiento seguro |
 | `results[]` / `liveFixtures[]` | `{home, away, status, kickoff, goals}` | marcadores en vivo, estados y **deadlines reales** (primer kickoff de cada jornada) |
 | `odds[]` | `{home, away, kickoff, bookmakers[].markets[]}` | normaliza `h2h` y `totals` sin margen para ajustar el valor esperado de capitán/vice; fallback al modelo base si faltan datos frescos |
 | `news[]` | `{title, description, url, source, publishedAt}` | pestaña Noticias con análisis de relevancia (clubes, jugadores, lesiones) |
 | `sources{}` / `errors{}` | booleans / strings | panel de observabilidad en Motor automático |
 
-`FanTeamData` interpreta este contrato de forma pura y devuelve planes de actualización, marcadores, deadlines y jornada detectada. `FanTeamOdds` recibe el reloj y los deadlines por inyección, comprueba la frescura de cada mercado, deriva la jornada y normaliza/agrega probabilidades sin margen. Los adaptadores de `index.html` conservan los efectos: mutar `PLAYERS`/`SYNC`, mantener la caché de momios, leer el reloj, avanzar el estado sin retroceder, hacer fetch, guardar caché/localStorage y renderizar la UI.
+`FanTeamData` interpreta este contrato de forma pura y devuelve planes de actualización, referencias históricas, marcadores, deadlines y jornada detectada. Mantiene `player.minutes` como estimación de la próxima participación y guarda minutos históricos, puntos y demás métricas FPL bajo `player.reference`. `FanTeamOdds` recibe el reloj y los deadlines por inyección, comprueba la frescura de cada mercado, deriva la jornada y normaliza/agrega probabilidades sin margen. Los adaptadores de `index.html` conservan los efectos: mutar `PLAYERS`/`SYNC`, mantener las cachés de momios y Mercado, leer el reloj, avanzar el estado sin retroceder, hacer fetch, guardar caché/localStorage y renderizar la UI.
 
 ## Modelo de proyección
 
@@ -70,7 +72,9 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - `FanTeamWeek` cierra una jornada de forma pura y atómica: añade el pronóstico y corte de valor ya capturados, consume las FT pendientes, avanza a la siguiente jornada o finaliza GW38 y limpia la decisión sin mutar el estado. El cálculo del XI, la persistencia, los avisos y el renderizado permanecen como adaptadores.
 - `FanTeamHistory` aplica de forma inmutable los resultados preparados por `FanTeamImport` y evalúa MAE, RMSE, sesgo, cobertura, capitanía con fallback al vice y retorno ponderado de transferencias. El reloj, archivos, persistencia y presentación permanecen como adaptadores.
 - `FanTeamPlanner` encadena esas transiciones durante un máximo de seis jornadas, recalcula XI y capitanía, compara la ruta con el baseline de la plantilla inicial y aplica de forma pura la decisión actual sin mutar el estado. `FanTeamPlannerView` convierte el resultado en resumen, ruta, nota y modelo de acción sin tocar DOM ni eventos; la persistencia, los avisos y el renderizado final permanecen como adaptadores en la aplicación.
-- **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Pts/M€** (valor = 3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Para tu plantilla también muestra precio de compra y variación; es ordenable por cualquier columna (clic en el encabezado o selector).
+- **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Valor 3GW** (3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Añade xG/xG90/xGC90, CS de temporada, Pts, PP, PPM (puntos ÷ precio FanTeam), minutos, partidos y balance de transferencias desde la referencia pública FPL; cuando hay resultados FanTeam importados, estos tienen prioridad para Pts/PP/minutos/partidos y la fuente se etiqueta en la tabla. Los datos ausentes se muestran como `—`, sin estimaciones inventadas.
+- **Programa y CS próxima GW:** muestra chips para las siguientes tres jornadas con local/visitante, rival y dificultad. La probabilidad CS de la próxima GW solo se calcula si existen mercados frescos `h2h` + total 2.5: deriva el lambda total, calibra lambdas local/visitante y aplica Poisson (`P(CS)=e^-lambda rival`); si faltan momios suficientes muestra `—`.
+- **Market tracker:** combina los cortes de precio FanTeam importados con compras/ventas netas y selección de referencia FPL, manteniendo claramente separadas ambas fuentes.
 - **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra. Cada importación distinta guarda un corte local por jugador (máximo 64), permite ordenar por última subida/bajada y muestra los principales movimientos en Historial.
 - **Optimizador de Wildcard (Comodines):** `FanTeamWildcard` construye de forma determinista la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. La Wildcard 1 solo se aplica entre los cierres de GW1 y GW19, y la Wildcard 2 entre los cierres de GW19 y GW38; cada una caduca al final de su ventana. Aplicarla reemplaza atómicamente los 15 jugadores, actualiza saldo y precios de compra, reinicia las transferencias libres y consume el comodín sin penalización de −4.
 - **Planner encadenado 6GW:** `FanTeamPlanner` parte de la plantilla y las transferencias libres actuales, aplica virtualmente cada recomendación antes de calcular la siguiente jornada, recalcula XI/capitán/vice, acumula las FT y compara la proyección total contra conservar el equipo. Solo permite aplicar el primer movimiento; el resto se recalcula con datos nuevos.
@@ -123,9 +127,9 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 ## Estado y pendientes
 
 - ✅ App nueva publicada con módulo de optimización completo.
-- ✅ Código del Worker v2.1.1 respaldado en `worker/src/index.js`, con caché adaptativa, lesiones con caducidad y suite smoke (`node worker/test/smoke.mjs`).
-- ✅ `players[]`: el Worker ya lo puebla con lesiones y alineaciones (vacío en pretemporada es esperado; se activa solo con la temporada).
-- ✅ v2.1.1 desplegada en Cloudflare; The Odds API activa y validada con mercados de Premier League.
+- ✅ Código del Worker v2.2.0 respaldado en `worker/src/index.js`, con caché v9 adaptativa, lesiones con caducidad, referencia pública FPL y suite smoke (`node worker/test/smoke.mjs`).
+- ✅ `players[]`: combina referencias FPL de rendimiento/xG/CS/transferencias con lesiones y alineaciones API-Football; cada registro se empareja de forma segura sin mezclar los minutos históricos con la estimación de la próxima aparición.
+- ✅ Worker v2.2.0 preparado para Cloudflare; The Odds API alimenta mercados y FPL alimenta la analítica de Mercado.
 - ✅ Capitán y vice por valor esperado con momios normalizados y fallback automático al modelo base.
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
 - ✅ Seguimiento de valor con precios de compra, historial individual de hasta 64 cortes importados, ranking de subidas/bajadas, plusvalía/pérdida, saldo, poder de compra y respaldos compatibles.

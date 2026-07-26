@@ -55,6 +55,38 @@
       return matches.length === 1 ? matches[0] : null;
     }
 
+    function prepareReference(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      const limits = {
+        points: [-100, 2000],
+        pointsPerGame: [-20, 100],
+        minutes: [0, 10000],
+        starts: [0, 100],
+        cleanSheets: [0, 100],
+        xg: [0, 200],
+        xg90: [0, 20],
+        xgc: [0, 300],
+        xgc90: [0, 20],
+        selectedBy: [0, 100],
+        transfersInEvent: [0, 100000000],
+        transfersOutEvent: [0, 100000000],
+      };
+      const reference = {};
+      for (const [field, [minimum, maximum]] of Object.entries(limits)) {
+        if (raw[field] == null || raw[field] === "") continue;
+        const number = Number(raw[field]);
+        if (Number.isFinite(number)) {
+          reference[field] = Math.max(minimum, Math.min(maximum, number));
+        }
+      }
+      const id = Number(raw.id);
+      if (Number.isSafeInteger(id) && id > 0) reference.id = id;
+      if (typeof raw.updatedAt === "string" && raw.updatedAt.trim()) {
+        reference.updatedAt = raw.updatedAt.trim().slice(0, 40);
+      }
+      return Object.keys(reference).length ? reference : null;
+    }
+
     function preparePlayerUpdates(list) {
       const result = { applied: 0, skipped: 0, updates: [] };
       if (!Array.isArray(list)) return result;
@@ -114,6 +146,8 @@
         if (typeof raw.status === "string" && raw.status.trim()) {
           update.status = raw.status.trim().slice(0, 64);
         }
+        const reference = prepareReference(raw.reference);
+        if (reference) update.reference = reference;
         result.updates.push(update);
         result.applied += 1;
       }
