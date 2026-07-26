@@ -19,10 +19,11 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
                                         └─────────────────────────────────┘
 ```
 
-- **`index.html`** — app estática sin build: contiene los datos de 580 jugadores, calendario, modelo de proyección, optimizadores y las 10 pestañas de la UI en español.
+- **`index.html`** — app estática sin build: contiene los datos de 580 jugadores, calendario, adaptadores del modelo, optimizadores y las 10 pestañas de la UI en español.
 - **`src/season-storage.js`** — adaptador clásico para persistir estado, endpoint y caché con fallback en memoria cuando `localStorage` no está disponible.
 - **`src/fanteam-scoring.js`** — motor puro FanTeam v1 para validar estadísticas, normalizarlas y calcular puntos por posición.
 - **`src/fanteam-import.js`** — núcleo puro y namespaced para parsear CSV/JSON, emparejar jugadores y preparar actualizaciones de precios y resultados.
+- **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
 - **`src/season-backup.js`** — módulo clásico y namespaced para crear/validar respaldos v5 y migrar respaldos históricos, cargable también mediante `file://`.
 - **`legacy/index-v1.html`** — versión anterior de la app (solo referencia histórica).
 - **`worker/`** — configuración y respaldo del código del Cloudflare Worker (ver `worker/README.md`).
@@ -47,6 +48,8 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 - **Horizonte 3GW** pondera `[1, .65, .35]`; **horizonte 6GW** pondera `[1, .85, .7, .55, .4, .28]`.
 - La confianza de titularidad se actualiza en vivo desde el Worker (`players[]`); la disponibilidad castiga confianza ≤ 25.
+- `FanTeamProjection` encapsula la fórmula, las ocho formaciones válidas, el EV de capitán y los horizontes. Recibe calendario, jugadores y momios mediante adaptadores para que el núcleo sea determinista y siga funcionando con `file://`.
+- Los horizontes se detienen en GW38: ningún cálculo del tramo final arrastra jornadas inexistentes más allá de mayo de 2027.
 
 ## Módulo de optimización
 
