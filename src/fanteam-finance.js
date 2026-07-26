@@ -17,15 +17,20 @@
     if (typeof getState !== "function") throw new Error("getState es obligatorio");
 
     function value(ids) {
-      return ids.reduce((total, id) => total + byId(id).price, 0);
+      return ids.reduce((total, id) => {
+        const player = byId(id);
+        return total + (player ? player.price : 0);
+      }, 0);
     }
 
     function purchaseCost(ids) {
       const state = getState();
       const squadIds = ids === undefined ? state.squad : ids;
       return squadIds.reduce((total, id) => {
+        const player = byId(id);
+        if (!player) return total;
         const stored = Number(state.purchasePrices?.[id]);
-        return total + (validPrice(stored) ? stored : byId(id).price);
+        return total + (validPrice(stored) ? stored : player.price);
       }, 0);
     }
 
@@ -44,7 +49,9 @@
     function clubValid(ids) {
       const counts = {};
       for (const id of ids) {
-        const club = byId(id).club;
+        const player = byId(id);
+        if (!player) return false;
+        const club = player.club;
         counts[club] = (counts[club] || 0) + 1;
         if (counts[club] > MAX_PLAYERS_PER_CLUB) return false;
       }

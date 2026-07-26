@@ -40,6 +40,64 @@
       && value >= -20
       && value <= 100
     );
+    const expectedPositions = initial.reduce((counts, id) => {
+      const player = playerByNumericId.get(Number(id));
+      if (player) counts[player.pos] = (counts[player.pos] || 0) + 1;
+      return counts;
+    }, {});
+
+    function normalizeSquad(rawSquad) {
+      if (!Array.isArray(rawSquad)) {
+        return {
+          ids: initial.slice(),
+          recovered: rawSquad !== undefined,
+          unknown: 0,
+          reason: "estructura inválida",
+        };
+      }
+
+      const ids = [];
+      const seen = new Set();
+      let unknown = 0;
+      for (const rawId of rawSquad) {
+        const player = playerByNumericId.get(Number(rawId));
+        if (!player) {
+          unknown += 1;
+          continue;
+        }
+        if (seen.has(player.id)) continue;
+        seen.add(player.id);
+        ids.push(player.id);
+      }
+
+      const positionCounts = ids.reduce((counts, id) => {
+        const position = playerByNumericId.get(Number(id))?.pos;
+        if (position) counts[position] = (counts[position] || 0) + 1;
+        return counts;
+      }, {});
+      const clubCounts = ids.reduce((counts, id) => {
+        const club = playerByNumericId.get(Number(id))?.club;
+        if (club) counts[club] = (counts[club] || 0) + 1;
+        return counts;
+      }, {});
+      const validPositions = Object.entries(expectedPositions).every(
+        ([position, count]) => positionCounts[position] === count,
+      );
+      const validClubs = Object.values(clubCounts).every((count) => count <= 3);
+      const valid = ids.length === 15
+        && seen.size === 15
+        && validPositions
+        && validClubs;
+
+      return {
+        ids: valid ? ids : initial.slice(),
+        recovered: !valid,
+        unknown,
+        reason: unknown
+          ? `${unknown} jugador${unknown === 1 ? "" : "es"} ya no existe${unknown === 1 ? "" : "n"} en el catálogo`
+          : "la plantilla no cumplía la estructura de 15 jugadores",
+      };
+    }
 
     function createInitialState() {
       return {
@@ -56,9 +114,31 @@
     function normalize(input) {
       const source = input && typeof input === "object" ? input : {};
       const state = { ...source };
-      state.squad = Array.isArray(source.squad) && source.squad.length === 15
-        ? source.squad.slice()
-        : initial.slice();
+      const squad = normalizeSquad(source.squad);
+      const warnings = squad.recovered
+        ? [{
+          code: "squad-recovered",
+          message: `${squad.reason}; se restauró la plantilla base para mantener la temporada editable y se conservaron las referencias financieras originales para conciliación.`,
+          unknownPlayers: squad.unknown,
+        }]
+        : [];
+      state.squad = squad.ids;
+      if (squad.recovered) {
+        const originalPurchasePrices = {};
+        for (const id of Array.isArray(source.squad) ? source.squad : []) {
+          const price = Number(source.purchasePrices?.[id]);
+          if (validPrice(price)) originalPurchasePrices[id] = price;
+        }
+        state.recovery = {
+          code: "squad-recovered",
+          originalSquad: Array.isArray(source.squad) ? source.squad.slice() : [],
+          originalFinances: {
+            bank: Number.isFinite(Number(source.bank)) ? Number(source.bank) : null,
+            purchasePrices: originalPurchasePrices,
+          },
+          message: warnings[0].message,
+        };
+      }
       state.gw = Math.max(1, Math.min(MAX_GAMEWEEK, Math.round(source.gw || 1)));
       state.free = Math.max(
         0,
@@ -73,7 +153,9 @@
           .filter((entry) => entry && Number.isFinite(Number(entry.gw)))
           .map((entry) => {
             const ids = (values) => Array.isArray(values)
-              ? values.map(Number).filter(knownPlayer)
+              ? values
+                .map(Number)
+                .filter((id) => Number.isSafeInteger(id) && id > 0)
               : [];
             const forecasts = {};
             for (const [id, raw] of Object.entries(
@@ -82,7 +164,7 @@
                 : {},
             )) {
               const value = Number(raw);
-              if (knownPlayer(id) && Number.isFinite(value) && value >= 0 && value <= 100) {
+              if (Number.isSafeInteger(Number(id)) && Number(id) > 0 && Number.isFinite(value) && value >= 0 && value <= 100) {
                 forecasts[id] = +value.toFixed(3);
               }
             }
@@ -93,15 +175,22 @@
                   inId: Number(transfer.inId),
                   projectedGain: Number(transfer.projectedGain) || 0,
                 }))
-                .filter((transfer) => knownPlayer(transfer.outId) && knownPlayer(transfer.inId))
+                .filter((transfer) => (
+                  Number.isSafeInteger(transfer.outId)
+                  && transfer.outId > 0
+                  && Number.isSafeInteger(transfer.inId)
+                  && transfer.inId > 0
+                ))
               : [];
             return {
               ...entry,
               gw: Math.max(1, Math.min(MAX_GAMEWEEK, Math.round(Number(entry.gw)))),
               squadIds: ids(entry.squadIds),
               xiIds: ids(entry.xiIds),
-              captainId: knownPlayer(entry.captainId) ? Number(entry.captainId) : null,
-              viceId: knownPlayer(entry.viceId) ? Number(entry.viceId) : null,
+              captainId: Number.isSafeInteger(Number(entry.captainId))
+                && Number(entry.captainId) > 0 ? Number(entry.captainId) : null,
+              viceId: Number.isSafeInteger(Number(entry.viceId))
+                && Number(entry.viceId) > 0 ? Number(entry.viceId) : null,
               projectedTotal: entry.projectedTotal != null
                 && Number.isFinite(Number(entry.projectedTotal))
                 ? Number(entry.projectedTotal)
@@ -137,12 +226,13 @@
         }
       }
 
-      state.purchasePrices = source.purchasePrices
-        && typeof source.purchasePrices === "object"
-        ? Array.isArray(source.purchasePrices)
-          ? source.purchasePrices.slice()
-          : { ...source.purchasePrices }
-        : {};
+      state.purchasePrices = squad.recovered
+        ? {}
+        : source.purchasePrices && typeof source.purchasePrices === "object"
+          ? Array.isArray(source.purchasePrices)
+            ? source.purchasePrices.slice()
+            : { ...source.purchasePrices }
+          : {};
       for (const id of state.squad) {
         const player = exactPlayer(id);
         const value = Number(state.purchasePrices[id]);
@@ -217,9 +307,11 @@
         const player = exactPlayer(id);
         return sum + (player ? playerPrices[player.id].price : 0);
       }, 0);
-      state.bank = Number.isFinite(Number(source.bank))
-        ? Math.max(0, Math.round(Number(source.bank) * 10) / 10)
-        : Math.max(0, Math.round((100 - squadValue) * 10) / 10);
+      state.bank = squad.recovered
+        ? Math.max(0, Math.round((100 - squadValue) * 10) / 10)
+        : Number.isFinite(Number(source.bank))
+          ? Math.max(0, Math.round(Number(source.bank) * 10) / 10)
+          : Math.max(0, Math.round((100 - squadValue) * 10) / 10);
       state.priceUpdatedAt = typeof source.priceUpdatedAt === "string"
         ? source.priceUpdatedAt
         : null;
@@ -244,7 +336,7 @@
             const player = playerByNumericId.get(id);
             const points = Number(actual?.points);
             const minutes = actual?.minutes == null ? null : Number(actual.minutes);
-            if (!player || !validActualPoints(points)) continue;
+            if (!validActualPoints(points)) continue;
             let normalized = {
               points: +points.toFixed(2),
               minutes: Number.isFinite(minutes)
@@ -256,7 +348,7 @@
                   ? minutes > 0
                   : true,
             };
-            if (actual.scoringVersion === "fanteam-v1") {
+            if (actual.scoringVersion === "fanteam-v1" && player) {
               if (!actual.stats || typeof actual.stats !== "object" || Array.isArray(actual.stats)) {
                 continue;
               }
@@ -337,7 +429,7 @@
         state.decision = null;
       }
 
-      return { state, playerPrices };
+      return { state, playerPrices, warnings };
     }
 
     return Object.freeze({ createInitialState, normalize });

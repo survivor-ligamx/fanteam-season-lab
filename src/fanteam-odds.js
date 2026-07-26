@@ -56,7 +56,7 @@
         const start = gameweekDeadline(gameweek).getTime();
         const end = gameweek < maxGameweek
           ? gameweekDeadline(gameweek + 1).getTime()
-          : Infinity;
+          : start + 10 * 86400000;
         if (time >= start && time < end) return gameweek;
       }
       return null;

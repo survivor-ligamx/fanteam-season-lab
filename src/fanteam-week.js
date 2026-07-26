@@ -23,6 +23,9 @@
       return { ok: false, code: "invalid-state" };
     }
     if (state.seasonComplete) return { ok: false, code: "season-complete" };
+    if (typeof captainName !== "string" || !captainName.trim()) {
+      return { ok: false, code: "invalid-captain" };
+    }
     if (!modelSnapshot || typeof modelSnapshot !== "object") {
       return { ok: false, code: "invalid-model-snapshot" };
     }
@@ -33,11 +36,11 @@
     const gameweek = state.gw;
     const used = state.decision?.type === "applied" ? (state.decision.count || 1) : 0;
     const historyEntry = {
+      ...modelSnapshot,
       gw: gameweek,
       decision: decisionDescription(state.decision),
-      captain: captainName,
+      captain: captainName.trim(),
       free: state.free,
-      ...modelSnapshot,
     };
     const history = state.history.concat([historyEntry]);
     const priceHistory = Array.isArray(state.priceHistory) ? state.priceHistory.slice() : [];

@@ -1,4 +1,4 @@
-// Prueba local del Worker fanteam-data (v2.2.0) — sin red ni credenciales reales.
+// Prueba local del Worker fanteam-data (v2.3.0) — sin red ni credenciales reales.
 // Ejecutar: node worker/test/smoke.mjs
 import worker from "../src/index.js";
 
@@ -109,8 +109,8 @@ const ctx1 = mkCtx();
 const res1 = await worker.fetch(new Request("https://w.dev/latest"), env, ctx1);
 const d1 = await res1.json();
 console.log("\n— Escenario 1: partido a +90 min (odds 401) —");
-check("version 2.2.0", d1.version === "2.2.0");
-check("Cache-Control 900s (ventana de partido)", res1.headers.get("Cache-Control").includes("max-age=900"));
+check("version 2.3.0", d1.version === "2.3.0");
+check("Cache-Control 120s (payload degradado)", res1.headers.get("Cache-Control").includes("max-age=120"));
 check("errors.odds = HTTP 401", d1.errors.odds === "HTTP 401");
 check("sources.odds = false", d1.sources.odds === false);
 check("news 1 artículo", d1.news.length === 1);
@@ -129,9 +129,9 @@ check("results desde football-data", d1.results.length === 1);
 check("cache.put invocado", ctx1.waited.length === 1 && cacheStore.size === 1);
 
 // ---------- Escenario 2: caché sirve la respuesta ----------
-const res2 = await worker.fetch(new Request("https://w.dev/otra-ruta"), env, mkCtx());
+const res2 = await worker.fetch(new Request("https://w.dev/latest"), env, mkCtx());
 console.log("\n— Escenario 2: hit de caché —");
-check("misma respuesta cacheada (clave v9 por origen)", res2 === cacheStore.get("https://w.dev/__fanteam_cache_v9"));
+check("misma respuesta degradada cacheada (clave v10 separada)", res2 === cacheStore.get("https://w.dev/__fanteam_cache_v10/latest?cors=server&format=compact&quality=degraded"));
 
 // ---------- Escenario 3: semana sin partidos ----------
 cacheStore.clear();
@@ -139,7 +139,7 @@ FIXTURE_KICKOFF = iso(now + 3 * 86400000); // partido en 3 días
 const res3 = await worker.fetch(new Request("https://w.dev/latest"), env, mkCtx());
 const d3 = await res3.json();
 console.log("\n— Escenario 3: sin partidos cercanos —");
-check("Cache-Control 10800s", res3.headers.get("Cache-Control").includes("max-age=10800"));
+check("Cache-Control 120s mientras odds siga degradada", res3.headers.get("Cache-Control").includes("max-age=120"));
 check("sin alineaciones (nadie a <2h)", !d3.players.some((p) => p.status === "Titular confirmado"));
 
 // ---------- Escenario 4: endpoints auxiliares ----------
@@ -147,7 +147,7 @@ const h = await (await worker.fetch(new Request("https://w.dev/health"), env, mk
 const o = await worker.fetch(new Request("https://w.dev/", { method: "OPTIONS" }), env, mkCtx());
 const p = await worker.fetch(new Request("https://w.dev/", { method: "POST" }), env, mkCtx());
 console.log("\n— Escenario 4: /health, OPTIONS, POST —");
-check("/health v2.2.0 GW correcto", h.version === "2.2.0" && h.currentGW >= 1 && h.currentGW <= 38);
+check("/health v2.3.0", h.version === "2.3.0" && h.ok === true);
 check("OPTIONS 204", o.status === 204);
 check("POST 405", p.status === 405);
 

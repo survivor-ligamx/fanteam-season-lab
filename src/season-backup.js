@@ -17,15 +17,20 @@
     };
   }
 
-  function parse(input, { migrateState, isKnownPlayer }) {
-    if (typeof migrateState !== "function" || typeof isKnownPlayer !== "function") {
+  function parse(input, { migrateState } = {}) {
+    if (typeof migrateState !== "function") {
       throw new Error("dependencias de migración inválidas");
     }
     const legacyState = input && input.state ? input.state : input;
     const validSquad = legacyState
       && Array.isArray(legacyState.squad)
       && legacyState.squad.length === 15
-      && legacyState.squad.every((id) => isKnownPlayer(id));
+      && legacyState.squad.every((id) => (
+        (typeof id === "number" || typeof id === "string")
+        && String(id).trim() !== ""
+        && Number.isSafeInteger(Number(id))
+        && Number(id) > 0
+      ));
     if (!validSquad) throw new Error("estructura inválida");
 
     const state = migrateState({

@@ -208,7 +208,8 @@
         }
       }
       for (const gameweek of Object.keys(kickoffs)) {
-        deadlines[gameweek] = new Date(kickoffs[gameweek]).toISOString();
+        // FanTeam closes roughly 90 minutes before the first kickoff.
+        deadlines[gameweek] = new Date(kickoffs[gameweek] - 90 * 60000).toISOString();
       }
       return {
         live,
