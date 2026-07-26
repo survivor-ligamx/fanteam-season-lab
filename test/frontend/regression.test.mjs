@@ -41,6 +41,52 @@ test("carga el dominio real sin ejecutar sincronización ni render inicial", asy
   assert.equal(dom.window.FanTeamSeasonBackup.VERSION, 5);
   assert.equal(typeof dom.window.FanTeamSeasonBackup.parse, "function");
   assert.equal(dom.window.localStorage.getItem("fanteam-data-endpoint"), null);
+  const freshUntil = "2026-08-21T18:00:00.000Z";
+  assert.equal(api.dataPreparePayload({ freshUntil }, 1).freshUntil, freshUntil);
+});
+
+test("catálogo mantiene identidad, clubes y campos estructurales válidos", async (t) => {
+  const { api, dom } = await setup(t);
+  const clubs = new Set(["ARS", "AVL", "BHA", "BOU", "BRE", "CHE", "CRY", "CVC", "EVE", "FUL", "HUL", "IPS", "LEE", "LIV", "MCI", "MUN", "NEW", "NFO", "SUN", "TOT"]);
+  const ids = new Set();
+  const identities = new Set();
+  const normalize = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  for (const player of api.players) {
+    assert.equal(ids.has(player.id), false, `ID duplicado: ${player.id}`);
+    ids.add(player.id);
+    const identity = `${normalize(player.name)}|${player.club}`;
+    assert.equal(identities.has(identity), false, `nombre+club duplicado: ${identity}`);
+    identities.add(identity);
+    assert.equal(clubs.has(player.club), true, `club inválido: ${player.club}`);
+    assert.equal(["GK", "DEF", "MID", "FWD"].includes(player.pos), true);
+    assert.equal(Number.isFinite(player.price) && player.price > 0, true);
+    const tokens = player.name.trim().split(/\s+/);
+    assert.equal(
+      tokens.length === 2 && normalize(tokens[0]) === normalize(tokens[1]),
+      false,
+      `nombre repetido: ${player.name}`,
+    );
+  }
+  const renamed = api.players.find((player) => player.aliases?.includes("Rodri Rodri"));
+  assert.equal(renamed.name, "Rodri");
+  assert.equal(
+    dom.window.FanTeamImport.matchPlayer(
+      { name: "Rodri Rodri", club: "MCI" },
+      api.players,
+      api.resolveClubCode,
+    )?.id,
+    renamed.id,
+  );
+  assert.equal(
+    api.dataPreparePlayerUpdates([{ name: "Rodri Rodri", club: "MCI", confidence: 5 }]).updates[0]?.id,
+    renamed.id,
+  );
+  assert.equal(ids.size, 580);
 });
 
 test("renderiza la jornada y las vistas principales con el estado inicial", async (t) => {
@@ -145,6 +191,26 @@ test("normaliza estados legacy, limita históricos y es idempotente", async (t) 
   const once = plain(migrated);
   const twice = plain(api.migrateState(plain(migrated)));
   assert.deepEqual(twice, once);
+});
+
+test("muestra conciliación persistente cuando recupera una plantilla huérfana", async (t) => {
+  const { api, dom } = await setup(t);
+  api.setState({
+    ...plain(api.state),
+    squad: [...plain(api.initial.slice(0, 14)), 999999999],
+    bank: 7.3,
+    purchasePrices: { 999999999: 4.5 },
+  });
+
+  api.renderWeek();
+
+  assert.equal(api.state.squad.length, 15);
+  assert.equal(api.state.recovery.originalSquad.at(-1), 999999999);
+  assert.equal(api.state.recovery.originalFinances.bank, 7.3);
+  const banner = dom.window.document.querySelector("#recoveryBanner");
+  assert.equal(banner.hidden, false);
+  assert.match(banner.textContent, /Saldo original: 7\.3M; saldo reconstruido:/);
+  assert.equal(dom.window.document.querySelector("#priceBankLabel").textContent, "Saldo reconstruido");
 });
 
 test("parsea precios y conserva el último movimiento observado por jugador", async (t) => {

@@ -58,6 +58,12 @@
     }
 
     function recommendationFor(ids, gameweek, free, allowDouble = true, funds = 100) {
+      const horizonCache = new Map();
+      const projected = (player) => {
+        const key = `${player.id}|${gameweek}`;
+        if (!horizonCache.has(key)) horizonCache.set(key, horizon(player, gameweek));
+        return horizonCache.get(key);
+      };
       if (gameweek > 1 && free <= 0) {
         return {
           type: "save",
@@ -72,7 +78,7 @@
           if (inn.pos !== out.pos || ids.includes(inn.id) || inn.confidence < 45) continue;
           const next = ids.map((id) => (id === out.id ? inn.id : id));
           if (value(next) > funds + .001 || !clubValid(next)) continue;
-          const gain = horizon(inn, gameweek) - horizon(out, gameweek);
+          const gain = projected(inn, gameweek) - projected(out, gameweek);
           moves.push({
             out,
             inn,
@@ -107,7 +113,7 @@
             .filter((player) => (
               player.pos === position && !ids.includes(player.id) && player.confidence >= 45
             ))
-            .sort((first, second) => horizon(second, gameweek) - horizon(first, gameweek))
+            .sort((first, second) => projected(second, gameweek) - projected(first, gameweek))
             .slice(0, 18);
         }
         for (let firstIndex = 0; firstIndex < squad.length; firstIndex += 1) {
@@ -116,13 +122,13 @@
             const secondOut = squad[secondIndex];
             const baseIds = ids.filter((id) => id !== firstOut.id && id !== secondOut.id);
             const budget = funds + .001 - value(baseIds);
-            const outgoingHorizon = horizon(firstOut, gameweek) + horizon(secondOut, gameweek);
+            const outgoingHorizon = projected(firstOut, gameweek) + projected(secondOut, gameweek);
             for (const firstIn of candidates[firstOut.pos]) {
               for (const secondIn of candidates[secondOut.pos]) {
                 if (secondIn.id === firstIn.id) continue;
                 if (firstIn.price + secondIn.price > budget) continue;
-                const gain = horizon(firstIn, gameweek)
-                  + horizon(secondIn, gameweek)
+                const gain = projected(firstIn, gameweek)
+                  + projected(secondIn, gameweek)
                   - outgoingHorizon;
                 if (pair && gain <= pair.gain) continue;
                 const nextIds = baseIds.concat([firstIn.id, secondIn.id]);

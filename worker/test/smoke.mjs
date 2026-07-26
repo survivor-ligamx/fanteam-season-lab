@@ -23,6 +23,8 @@ const canned = () => ({
   fixtures: {
     response: [
       { fixture: { id: 111, date: FIXTURE_KICKOFF, status: { short: "NS" } }, teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } }, goals: { home: null, away: null } },
+      { fixture: { id: 112, date: iso(new Date(FIXTURE_KICKOFF).getTime() - 30 * 60000), status: { short: "NS" } }, teams: { home: { name: "Manchester City" }, away: { name: "Liverpool" } }, goals: { home: null, away: null } },
+      { fixture: { id: 113, date: iso(new Date(FIXTURE_KICKOFF).getTime() - 60 * 60000), status: { short: "NS" } }, teams: { home: { name: "Everton" }, away: { name: "Fulham" } }, goals: { home: null, away: null } },
     ],
   },
   lineups: {
@@ -36,6 +38,7 @@ const canned = () => ({
     teams: [
       { id: 1, name: "Arsenal", short_name: "ARS" },
       { id: 2, name: "Coventry City", short_name: "COV" },
+      { id: 3, name: "Manchester City", short_name: "MCI" },
     ],
     elements: [
       {
@@ -54,6 +57,40 @@ const canned = () => ({
         selected_by_percent: "24.5",
         transfers_in_event: 1200,
         transfers_out_event: 300,
+      },
+      {
+        id: 103,
+        web_name: "Rodri",
+        team: 3,
+        total_points: 90,
+        points_per_game: "4.1",
+        minutes: 1980,
+        starts: 22,
+        clean_sheets: 8,
+        expected_goals: "3.20",
+        expected_goals_per_90: "0.15",
+        expected_goals_conceded: "20.00",
+        expected_goals_conceded_per_90: "0.91",
+        selected_by_percent: "8.5",
+        transfers_in_event: 200,
+        transfers_out_event: 100,
+      },
+      {
+        id: 104,
+        web_name: "Gyökeres",
+        team: 1,
+        total_points: 120,
+        points_per_game: "5.0",
+        minutes: 2100,
+        starts: 24,
+        clean_sheets: 0,
+        expected_goals: "18.00",
+        expected_goals_per_90: "0.77",
+        expected_goals_conceded: "0.00",
+        expected_goals_conceded_per_90: "0.00",
+        selected_by_percent: "22.0",
+        transfers_in_event: 800,
+        transfers_out_event: 200,
       },
       {
         id: 102,
@@ -76,12 +113,16 @@ const canned = () => ({
   },
 });
 
+let LINEUP_REQUESTS = [];
 function stubFetch(url) {
   const body = (data, status = 200) =>
     new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
   const c = canned();
   if (url.includes("/injuries")) return body(c.injuries);
-  if (url.includes("/fixtures/lineups")) return body(c.lineups);
+  if (url.includes("/fixtures/lineups")) {
+    LINEUP_REQUESTS.push(url);
+    return body(c.lineups);
+  }
   if (url.includes("/fixtures?")) return body(c.fixtures);
   if (url.includes("football-data.org")) return body(c.matches);
   if (url.includes("the-odds-api.com")) return body({ message: "Unauthorized" }, 401); // reproduce el 401 real
@@ -111,6 +152,7 @@ const d1 = await res1.json();
 console.log("\n— Escenario 1: partido a +90 min (odds 401) —");
 check("version 2.3.0", d1.version === "2.3.0");
 check("Cache-Control 120s (payload degradado)", res1.headers.get("Cache-Control").includes("max-age=120"));
+check("freshUntil coincide con TTL degradado", new Date(d1.freshUntil).getTime() - now >= 115000 && new Date(d1.freshUntil).getTime() - now <= 121000);
 check("errors.odds = HTTP 401", d1.errors.odds === "HTTP 401");
 check("sources.odds = false", d1.sources.odds === false);
 check("news 1 artículo", d1.news.length === 1);
@@ -118,13 +160,14 @@ const byName = Object.fromEntries(d1.players.map((p) => [p.name, p]));
 check("FPL activo y sin error", d1.sources.fpl === true && d1.errors.fpl === null);
 check("referencia FPL resume xG, CS, puntos, minutos y partidos", byName.Raya?.reference?.points === 162 && byName.Raya?.reference?.cleanSheets === 19 && byName.Raya?.reference?.minutes === 3330 && byName.Raya?.reference?.starts === 37 && byName.Raya?.reference?.xgc90 === 0.84);
 check("Coventry FPL se mapea a CVC sin convertir ausencias en cero", byName["Coventry Player"]?.club === "CVC" && byName["Coventry Player"]?.reference?.xg === null && byName["Coventry Player"]?.reference?.xg90 === null);
-check("lesión reciente → confianza 5", byName["Rodri"]?.confidence === 5 && byName["Rodri"]?.club === "MCI");
+check("lesión reciente se fusiona con referencia FPL", d1.players.filter((p) => p.name === "Rodri").length === 1 && byName.Rodri?.confidence === 5 && byName.Rodri?.club === "MCI" && byName.Rodri?.reference?.points === 90);
 check("lesión de 30 días descartada", !byName["Viejo Lesionado"]);
 check("Questionable → confianza 30", byName["Cole Palmer"]?.confidence === 30);
 check("dedupe: gana el registro reciente", byName["Bukayo Saka"]?.status === "Ankle Injury" && byName["Bukayo Saka"]?.confidence === 5);
-check("titular confirmado → 95", byName["Viktor Gyökeres"]?.confidence === 95);
+check("titular con nombre completo se fusiona con web_name FPL", d1.players.filter((p) => p.name === "Viktor Gyökeres" || p.name === "Gyökeres").length === 1 && byName["Viktor Gyökeres"]?.confidence === 95 && byName["Viktor Gyökeres"]?.reference?.points === 120);
 check("suplente confirmado → 30", byName["Gabriel Jesus"]?.confidence === 30);
-check("liveFixtures 1", d1.liveFixtures.length === 1);
+check("liveFixtures 3", d1.liveFixtures.length === 3);
+check("consulta alineaciones de todos los fixtures en ventana", new Set(LINEUP_REQUESTS).size === 3);
 check("results desde football-data", d1.results.length === 1);
 check("cache.put invocado", ctx1.waited.length === 1 && cacheStore.size === 1);
 
@@ -135,21 +178,26 @@ check("misma respuesta degradada cacheada (clave v10 separada)", res2 === cacheS
 
 // ---------- Escenario 3: semana sin partidos ----------
 cacheStore.clear();
+LINEUP_REQUESTS = [];
 FIXTURE_KICKOFF = iso(now + 3 * 86400000); // partido en 3 días
 const res3 = await worker.fetch(new Request("https://w.dev/latest"), env, mkCtx());
 const d3 = await res3.json();
 console.log("\n— Escenario 3: sin partidos cercanos —");
 check("Cache-Control 120s mientras odds siga degradada", res3.headers.get("Cache-Control").includes("max-age=120"));
-check("sin alineaciones (nadie a <2h)", !d3.players.some((p) => p.status === "Titular confirmado"));
+check("sin alineaciones (nadie entre −30m y +90m)", !d3.players.some((p) => p.status === "Titular confirmado") && LINEUP_REQUESTS.length === 0);
 
 // ---------- Escenario 4: endpoints auxiliares ----------
 const h = await (await worker.fetch(new Request("https://w.dev/health"), env, mkCtx())).json();
 const o = await worker.fetch(new Request("https://w.dev/", { method: "OPTIONS" }), env, mkCtx());
 const p = await worker.fetch(new Request("https://w.dev/", { method: "POST" }), env, mkCtx());
-console.log("\n— Escenario 4: /health, OPTIONS, POST —");
+const unknownOptions = await worker.fetch(new Request("https://w.dev/missing", { method: "OPTIONS" }), env, mkCtx());
+const unknownGet = await worker.fetch(new Request("https://w.dev/missing"), env, mkCtx());
+console.log("\n— Escenario 4: /health, OPTIONS, POST y 404 —");
 check("/health v2.3.0", h.version === "2.3.0" && h.ok === true);
 check("OPTIONS 204", o.status === 204);
 check("POST 405", p.status === 405);
+check("OPTIONS de ruta desconocida 204", unknownOptions.status === 204);
+check("GET de ruta desconocida 404", unknownGet.status === 404);
 
 console.log(failures ? `\n${failures} PRUEBAS FALLARON ✗` : "\nTODAS LAS PRUEBAS PASARON ✓");
 process.exit(failures ? 1 : 0);
