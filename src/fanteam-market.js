@@ -47,7 +47,7 @@
         maximumBonus: .42,
         preseasonPrice: 8,
         kind: "attacking-midfielder",
-        label: "MID con producción de atacante",
+        label: "MID con producción de delantero",
       }
       : {
         threshold: .10,
