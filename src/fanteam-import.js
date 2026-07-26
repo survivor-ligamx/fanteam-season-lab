@@ -90,7 +90,9 @@
       const name = normalizeKey(item.name);
       if (club) {
         const matches = players.filter((candidate) => (
-          candidate.club === club && normalizeKey(candidate.name) === name
+          candidate.club === club
+          && [candidate.name, ...(candidate.aliases || [])]
+            .some((candidateName) => normalizeKey(candidateName) === name)
         ));
         if (matches.length === 1) player = matches[0];
       }

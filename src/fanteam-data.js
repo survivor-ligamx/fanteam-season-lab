@@ -32,6 +32,11 @@
       ]),
     );
 
+    const matchesPlayerName = (player, normalizedName) => (
+      [player.name, ...(player.aliases || [])]
+        .some((name) => normalizeName(name) === normalizedName)
+    );
+
     function resolveClubCode(value) {
       if (value == null) return null;
       const raw = String(
@@ -105,13 +110,13 @@
           if (club) {
             const exact = catalog.filter(
               (candidate) => candidate.club === club
-                && normalizeName(candidate.name) === normalizedName,
+                && matchesPlayerName(candidate, normalizedName),
             );
             if (exact.length === 1) player = exact[0];
           }
           if (!player) {
             const globalMatches = catalog.filter(
-              (candidate) => normalizeName(candidate.name) === normalizedName,
+              (candidate) => matchesPlayerName(candidate, normalizedName),
             );
             if (
               globalMatches.length === 1
@@ -252,6 +257,7 @@
         sources: source.sources || null,
         errors: source.errors || null,
         updatedAt: source.updatedAt || null,
+        freshUntil: source.freshUntil || null,
         gameweek,
       };
     }

@@ -182,9 +182,8 @@ async function getAPIFootball(env) {
             const kickoff = new Date(item.fixture.date).getTime();
             const difference = kickoff - Date.now();
 
-            return difference >= -30 * 60000 && difference <= 120 * 60000;
+            return difference >= -30 * 60000 && difference <= 90 * 60000;
           })
-          .slice(0, 2)
       : [];
 
   const lineups = await Promise.all(
@@ -346,6 +345,79 @@ function parsePlayerUpdates(apiFootball) {
   }
 
   return [...updates.values()];
+}
+
+
+function normalizePlayerKey(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+
+function mergePlayerRecords(referencePlayers, liveUpdates) {
+  const merged = new Map();
+  const aliases = new Map();
+  const aliasFor = (name, club) => {
+    const normalizedName = normalizePlayerKey(name);
+    const normalizedClub = normalizePlayerKey(club);
+    return normalizedName && normalizedClub
+      ? `${normalizedName}|${normalizedClub}`
+      : null;
+  };
+  const nameVariants = (player) => {
+    const name = normalizePlayerKey(player?.name);
+    if (!name) return [];
+    const tokens = name.split(" ");
+    return [...new Set([
+      name,
+      tokens.slice(-2).join(" "),
+      tokens.at(-1),
+      tokens[0]
+    ].filter(Boolean))];
+  };
+  const registerAliases = (player, key) => {
+    for (const variant of nameVariants(player)) {
+      const alias = aliasFor(variant, player.club);
+      if (!alias) continue;
+      if (!aliases.has(alias)) aliases.set(alias, new Set());
+      aliases.get(alias).add(key);
+    }
+  };
+  const resolveAlias = (player) => {
+    for (const variant of nameVariants(player)) {
+      const owners = aliases.get(aliasFor(variant, player.club));
+      if (owners?.size === 1) return [...owners][0];
+    }
+    return null;
+  };
+
+  for (const player of referencePlayers) {
+    const exactAlias = aliasFor(player.name, player.club);
+    const key = player.id != null ? `id:${player.id}` : `alias:${exactAlias}`;
+    merged.set(key, { ...player });
+    registerAliases(player, key);
+  }
+
+  for (const update of liveUpdates) {
+    const exactAlias = aliasFor(update.name, update.club);
+    const idKey = update.id != null ? `id:${update.id}` : null;
+    const exactOwners = exactAlias ? aliases.get(exactAlias) : null;
+    const exactKey = exactOwners?.size === 1 ? [...exactOwners][0] : null;
+    const key = (idKey && merged.has(idKey) && idKey)
+      || exactKey
+      || resolveAlias(update)
+      || idKey
+      || (exactAlias && `alias:${exactAlias}`);
+    if (!key) continue;
+    merged.set(key, { ...(merged.get(key) || {}), ...update });
+    registerAliases(update, key);
+  }
+
+  return [...merged.values()];
 }
 
 
@@ -521,10 +593,10 @@ async function buildPayload(env) {
     updatedAt,
     currentGW: currentGameweek(results),
 
-    players: [
-      ...summarizeFPL(fpl, updatedAt),
-      ...parsePlayerUpdates(apiFootball)
-    ],
+    players: mergePlayerRecords(
+      summarizeFPL(fpl, updatedAt),
+      parsePlayerUpdates(apiFootball)
+    ),
     liveFixtures: summarizeFixtures(apiFootball.fixtures),
     results,
     odds: summarizeOdds(odds),
@@ -559,6 +631,12 @@ async function buildPayload(env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (request.method === "OPTIONS") {
+      const template = responseJSON(null, 200, 0, request, env);
+      return new Response(null, { status: 204, headers: template.headers });
+    }
+
     const latestRoute = url.pathname === "/" || url.pathname === "/latest";
     const healthRoute = url.pathname === "/health";
 
@@ -570,11 +648,6 @@ export default {
         request,
         env
       );
-    }
-
-    if (request.method === "OPTIONS") {
-      const template = responseJSON(null, 200, 0, request, env);
-      return new Response(null, { status: 204, headers: template.headers });
     }
 
     if (request.method !== "GET") {
@@ -626,6 +699,7 @@ export default {
       : matchWindow
         ? 900
         : 10800;
+    payload.freshUntil = new Date(now + ttl * 1000).toISOString();
     const response = responseJSON(payload, 200, ttl, request, env);
     const cacheKey = payload.degraded ? degradedKey : healthyKey;
 

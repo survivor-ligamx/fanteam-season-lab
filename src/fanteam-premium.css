@@ -5,7 +5,7 @@
   --bg: #070b17;
   --card: rgba(17, 25, 45, 0.86);
   --text: #f4f7ff;
-  --muted: #96a4bf;
+  --muted: #a8b4cc;
   --line: rgba(150, 174, 220, 0.15);
   --nav: #080d1c;
   --blue: #6c63ff;
@@ -1159,3 +1159,101 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   background: rgba(67, 217, 255, 0.11);
 }
 .plannerDifferential { color: #78e7ff !important; font-weight: 750; }
+
+
+/* Audit hardening: readable metadata, explicit data health and mobile context. */
+#mobileContext {
+  display: none;
+  color: #b9c6dc;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.recoveryBanner,
+.dataHealth {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 189, 89, 0.38);
+  border-radius: 13px;
+  color: #f7dfb1;
+  background: rgba(255, 189, 89, 0.1);
+  line-height: 1.5;
+}
+.recoveryBanner[hidden] { display: none; }
+.recoveryBanner strong,
+.dataHealth strong { flex: 0 0 auto; color: #fff; }
+.dataHealth { margin: 14px 0; }
+.dataHealth.healthy { border-color: rgba(32, 217, 161, 0.38); color: #b5f1df; background: rgba(32, 217, 161, 0.09); }
+.dataHealth.partial { border-color: rgba(255, 189, 89, 0.38); }
+.dataHealth.stale { border-color: rgba(255, 102, 128, 0.4); color: #ffd0d8; background: rgba(255, 102, 128, 0.09); }
+.dataHealth.base { border-color: rgba(155, 131, 255, 0.36); color: #d2caff; background: rgba(155, 131, 255, 0.09); }
+
+.brand small,
+.liveDot,
+.nav::before,
+.metric span,
+.table th,
+.clubCrest,
+.positionBadge,
+.leaderBadge,
+.playerFacts,
+.playerProjection span,
+.benchInfo small,
+.benchPoints span,
+.sectionEyebrow,
+.squadLegend span,
+.sourceState,
+.newsMetaLine,
+.newsTag,
+.statChip,
+.tagOpt,
+.diffBadge,
+.clubBadge,
+.versus,
+#squad .playerFacts,
+#squad .benchInfo small {
+  font-size: 12px;
+}
+.navIcon { font-size: 12px; }
+.topKicker { font-size: 12px; }
+.fresh { color: #c2cde0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.playerFacts,
+.playerProjection span,
+.benchInfo small,
+.benchPoints span,
+.table th,
+.metric span { color: #a8b4cc; }
+.metric strong,
+.price,
+.countdown,
+.marketStats b,
+.playerProjection strong,
+.benchPoints strong { font-variant-numeric: tabular-nums; }
+.btn,
+.nav button,
+.input,
+.select { min-height: 44px; }
+
+@media (max-width: 900px) {
+  #mobileContext { display: block; }
+  .topIdentity { min-width: 0; }
+  .top h2 { margin-bottom: 1px; }
+  .nav button { min-height: 44px; }
+}
+
+@media (max-width: 640px) {
+  .top { gap: 10px; }
+  .top h2 { max-width: none; }
+  .topMeta { flex: 0 1 auto; max-width: 46vw; }
+  .fresh {
+    width: auto;
+    max-width: 46vw;
+    overflow: visible;
+    white-space: normal;
+  }
+  .recoveryBanner,
+  .dataHealth { flex-direction: column; gap: 4px; }
+}
