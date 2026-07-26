@@ -85,8 +85,15 @@ test("abre la aplicación y su módulo de respaldo mediante file://", async ({ p
   await expect(page.locator("#pitch .player")).toHaveCount(11);
   await expect(page.locator("#bench .benchCard")).toHaveCount(4);
   expect(await page.evaluate(() => ({
-    type: typeof globalThis.FanTeamSeasonBackup,
-    version: globalThis.FanTeamSeasonBackup?.VERSION,
-  }))).toEqual({ type: "object", version: 5 });
+    backupType: typeof globalThis.FanTeamSeasonBackup,
+    backupVersion: globalThis.FanTeamSeasonBackup?.VERSION,
+    scoringType: typeof globalThis.FanTeamScoring,
+    scoringVersion: globalThis.FanTeamScoring?.VERSION,
+  }))).toEqual({
+    backupType: "object",
+    backupVersion: 5,
+    scoringType: "object",
+    scoringVersion: "fanteam-v1",
+  });
   expect(browserErrors).toEqual([]);
 });
