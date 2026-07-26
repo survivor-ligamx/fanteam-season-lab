@@ -4,6 +4,8 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 **Producción:** https://survivor-ligamx.github.io/fanteam-season-lab/
 
+> **Alcance de la plantilla:** la app es un planificador independiente. La plantilla mostrada es un borrador/recomendación guardado en este navegador; no inicia sesión, no envía cambios ni modifica una cuenta de FanTeam. Antes del cierre de GW1 puedes ajustar el borrador sin límite y, cuando esté listo, debes copiar y confirmar manualmente en FanTeam los 15 jugadores, banca, capitán y vice.
+
 ---
 
 ## Arquitectura
