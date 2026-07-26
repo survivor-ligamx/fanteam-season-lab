@@ -1,0 +1,53 @@
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { JSDOM } from "jsdom";
+
+const INDEX_PATH = fileURLToPath(new URL("../../index.html", import.meta.url));
+const BOOTSTRAP = "initAutomation();renderWeek();";
+
+export async function createFrontendHarness() {
+  const html = await readFile(INDEX_PATH, "utf8");
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  if (!scriptMatch) throw new Error("No se encontró el script principal de index.html");
+  if (!scriptMatch[1].includes(BOOTSTRAP)) throw new Error("Cambió el arranque esperado del frontend");
+
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "https://fanteam.test/",
+  });
+
+  const exposure = `
+    globalThis.__FANTEAM_TEST__ = {
+      get players() { return PLAYERS; },
+      get initial() { return INITIAL.slice(); },
+      get state() { return state; },
+      setState(next) { state = migrateState(next); return state; },
+      createSeasonBackup,
+      parseSeasonBackup,
+      migrateState,
+      normalizeFanTeamStats,
+      calculateFanTeamPoints,
+      parsePriceInput,
+      applyPriceUpdates,
+      priceMovementFor,
+      marketPriceMovementSummary,
+      bestXI,
+      optimizeWildcard,
+      buyingPower,
+      value,
+      clubValid,
+      renderWeek,
+      POS_QUOTA,
+    };
+  `;
+
+  const source = scriptMatch[1].replace(BOOTSTRAP, exposure);
+  dom.window.eval(source);
+
+  return {
+    api: dom.window.__FANTEAM_TEST__,
+    dom,
+    source: scriptMatch[1],
+    close: () => dom.window.close(),
+  };
+}

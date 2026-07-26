@@ -1,0 +1,17 @@
+{
+  "name": "fanteam-season-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
+  },
+  "scripts": {
+    "test": "npm run test:frontend && npm run test:worker",
+    "test:frontend": "node --test test/frontend/*.test.mjs",
+    "test:worker": "node worker/test/smoke.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1"
+  }
+}

@@ -87,6 +87,7 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 ## Desarrollo y deploy
 
 - **App:** edita `index.html` y haz push a `main` — GitHub Pages publica automáticamente. Sin build.
+- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez y luego `npm test`; este comando corre las regresiones del frontend en JSDOM y el smoke del Worker. Usa `npm run test:frontend` o `npm run test:worker` para ejecutarlas por separado.
 - **Worker:** ver `worker/README.md` (deploy con `wrangler deploy`, secrets con `wrangler secret put`).
 - Prueba local: abre `index.html` en el navegador; el “modo seguro” funciona sin red.
 
@@ -100,3 +101,4 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
 - ✅ Seguimiento de valor con precios de compra, historial individual de hasta 64 cortes importados, ranking de subidas/bajadas, plusvalía/pérdida, saldo, poder de compra y respaldos compatibles.
 - ✅ Puntos reales por jornada con motor de scoring FanTeam v1, pronósticos congelados, MAE/RMSE/sesgo, acierto de capitán y retorno de transferencias a 3GW.
+- ✅ Suite de regresión frontend con 9 escenarios sobre render, scoring, migraciones, precios, respaldo v5, mejor XI y optimizador de Wildcard; `npm test` también ejecuta el smoke del Worker.
