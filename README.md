@@ -22,6 +22,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`index.html`** — app estática sin build: contiene los datos de 580 jugadores, calendario, modelo de proyección, optimizadores y las 10 pestañas de la UI en español.
 - **`src/season-storage.js`** — adaptador clásico para persistir estado, endpoint y caché con fallback en memoria cuando `localStorage` no está disponible.
 - **`src/fanteam-scoring.js`** — motor puro FanTeam v1 para validar estadísticas, normalizarlas y calcular puntos por posición.
+- **`src/fanteam-import.js`** — núcleo puro y namespaced para parsear CSV/JSON, emparejar jugadores y preparar actualizaciones de precios y resultados.
 - **`src/season-backup.js`** — módulo clásico y namespaced para crear/validar respaldos v5 y migrar respaldos históricos, cargable también mediante `file://`.
 - **`legacy/index-v1.html`** — versión anterior de la app (solo referencia histórica).
 - **`worker/`** — configuración y respaldo del código del Cloudflare Worker (ver `worker/README.md`).
@@ -54,6 +55,10 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **Optimizador de Wildcard (Comodines):** construye la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. Corre en el navegador en <1 s.
 - **Planner encadenado 6GW:** parte de la plantilla y las transferencias libres actuales, aplica virtualmente cada recomendación antes de calcular la siguiente jornada, recalcula XI/capitán/vice, acumula las FT y compara la proyección total contra conservar el equipo. Solo permite aplicar el primer movimiento; el resto se recalcula con datos nuevos.
 - **Mejor XI:** 8 formaciones evaluadas; capitán y vice por valor esperado, combinando la proyección base con probabilidades `h2h` y `totals` normalizadas de varias casas. La frescura se mide con `last_update` de cada mercado; si no hay mercados con menos de 6 horas, utiliza automáticamente la proyección base.
+
+## Importación FanTeam v1
+
+`FanTeamImport` concentra la parte pura de las importaciones: interpreta CSV/JSON, normaliza encabezados, resuelve jugadores primero por ID y después por coincidencia única de nombre+club, y prepara planes validados antes de modificar el estado. La lectura de archivos, los snapshots de mercado, la persistencia y el renderizado permanecen en la aplicación. Es un script clásico sin dependencias de build y funciona mediante HTTP o `file://`.
 
 ## Motor de scoring FanTeam v1
 
