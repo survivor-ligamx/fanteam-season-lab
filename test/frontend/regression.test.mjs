@@ -1,8 +1,30 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createFrontendHarness } from "./harness.mjs";
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
+const loadBackupFixture = async (version) => JSON.parse(
+  await readFile(new URL(`./fixtures/backup-v${version}.json`, import.meta.url), "utf8"),
+);
+
+function buildWorstValidSquad(api, gw = 2) {
+  const ids = [];
+  const clubs = {};
+  for (const [position, quota] of Object.entries(plain(api.POS_QUOTA))) {
+    const candidates = api.players
+      .filter((player) => player.pos === position)
+      .sort((left, right) => api.horizon(left, gw) - api.horizon(right, gw));
+    for (const player of candidates) {
+      const selected = ids.filter((id) => api.byId(id).pos === position).length;
+      if (selected >= quota) break;
+      if ((clubs[player.club] || 0) >= 3) continue;
+      ids.push(player.id);
+      clubs[player.club] = (clubs[player.club] || 0) + 1;
+    }
+  }
+  return ids;
+}
 
 async function setup(t) {
   const harness = await createFrontendHarness();
@@ -16,6 +38,8 @@ test("carga el dominio real sin ejecutar sincronización ni render inicial", asy
   assert.equal(api.players.length, 580);
   assert.equal(api.initial.length, 15);
   assert.equal(api.state.squad.length, 15);
+  assert.equal(dom.window.FanTeamSeasonBackup.VERSION, 5);
+  assert.equal(typeof dom.window.FanTeamSeasonBackup.parse, "function");
   assert.equal(dom.window.localStorage.getItem("fanteam-data-endpoint"), null);
 });
 
@@ -264,4 +288,135 @@ test("Wildcard produce una plantilla determinista, válida y dentro del presupue
   assert.ok(Math.max(...Object.values(clubs)) <= 3);
   assert.equal(Number.isFinite(first.score), true);
   assert.equal(Number.isFinite(first.xiPts), true);
+});
+
+
+test("migra fixtures históricos v1-v5 y conserva las capacidades de cada versión", async (t) => {
+  const { api } = await setup(t);
+  const restored = {};
+
+  for (const version of [1, 2, 3, 4, 5]) {
+    const fixture = await loadBackupFixture(version);
+    const parsed = api.parseSeasonBackup(fixture);
+    const state = plain(parsed.state);
+
+    assert.equal(fixture.v, version);
+    assert.equal(state.gw, version + 1);
+    assert.equal(state.squad.length, 15);
+    assert.equal(new Set(state.squad).size, 15);
+    assert.equal(parsed.endpoint, "https://example.test/worker");
+    assert.deepEqual(plain(api.migrateState(plain(state))), state);
+    restored[version] = state;
+  }
+
+  assert.deepEqual(restored[1].priceOverrides, {});
+  assert.deepEqual(restored[1].actualsByGW, {});
+  assert.deepEqual(restored[1].marketPriceHistory, []);
+
+  assert.equal(restored[2].priceOverrides[4700673], 13);
+  assert.equal(restored[2].purchasePrices[4700673], 12.5);
+  assert.equal(restored[2].priceHistory[0].buyingPower, 102.5);
+
+  assert.equal(restored[3].history[0].forecastByPlayer[4700673], 6.5);
+  assert.equal(restored[3].actualsByGW[3].players[4700673].points, 9);
+
+  const scored = restored[4].actualsByGW[4].players[4700673];
+  assert.equal(scored.scoringVersion, "fanteam-v1");
+  assert.equal(scored.points, 7.4);
+  assert.equal(scored.reportedPoints, 8);
+  assert.equal(scored.breakdown.goals, 4);
+
+  assert.equal(restored[5].marketPriceHistory.length, 1);
+  assert.equal(restored[5].marketPriceHistory[0].seq, 1);
+  assert.deepEqual(restored[5].marketPriceHistory[0].changes[4700673], [12.5, 13]);
+});
+
+test("recomendador respeta FT, umbrales, presupuesto y doble cambio", async (t) => {
+  const { api } = await setup(t);
+  const optimized = api.optimizeWildcard();
+  const optimizedFunds = api.value(optimized.ids);
+
+  const unavailable = api.recommendationFor(optimized.ids, 2, 0, true, optimizedFunds);
+  assert.equal(unavailable.type, "save");
+  assert.match(unavailable.reason, /No hay transferencias libres/);
+
+  const belowThreshold = api.recommendationFor(optimized.ids, 2, 1, true, optimizedFunds);
+  assert.equal(belowThreshold.type, "save");
+  assert.ok(belowThreshold.gain < 1.65);
+
+  const lowerThreshold = api.recommendationFor(optimized.ids, 2, 2, true, optimizedFunds);
+  assert.equal(lowerThreshold.type, "transfer");
+  assert.equal(Boolean(lowerThreshold.double), false);
+  assert.ok(lowerThreshold.gain >= 1.05);
+
+  const poorSquad = buildWorstValidSquad(api);
+  assert.equal(poorSquad.length, 15);
+  assert.equal(api.clubValid(poorSquad), true);
+
+  const single = api.recommendationFor(poorSquad, 2, 1, true, 100);
+  assert.equal(single.type, "transfer");
+  assert.equal(Boolean(single.double), false);
+  assert.equal(single.out.pos, single.inn.pos);
+  const singleSquad = api.idsAfterRecommendation(poorSquad, single);
+  assert.equal(api.clubValid(singleSquad), true);
+  assert.ok(api.value(singleSquad) <= 100.001);
+
+  const double = api.recommendationFor(poorSquad, 2, 2, true, 100);
+  assert.equal(double.type, "transfer");
+  assert.equal(double.double, true);
+  assert.equal(api.transferCount(double), 2);
+  assert.ok(double.gain >= single.gain + 1.05);
+  const doubleSquad = api.idsAfterRecommendation(poorSquad, double);
+  assert.equal(new Set(doubleSquad).size, 15);
+  assert.equal(api.clubValid(doubleSquad), true);
+  assert.ok(api.value(doubleSquad) <= 100.001);
+});
+
+test("planner encadena seis jornadas sin mutar la plantilla de origen", async (t) => {
+  const { api } = await setup(t);
+  const squad = buildWorstValidSquad(api);
+  const bank = Number((100 - api.value(squad)).toFixed(1));
+  api.setState({
+    ...plain(api.state),
+    gw: 2,
+    free: 2,
+    squad,
+    bank,
+    history: [],
+    decision: null,
+  });
+
+  const before = plain(api.state.squad);
+  const plan = api.simulateSixWeekPlan();
+
+  assert.equal(plan.start, 2);
+  assert.equal(plan.end, 7);
+  assert.equal(plan.weeks.length, 6);
+  assert.equal(plan.weeks[0].recommendation.double, true);
+  assert.equal(plan.weeks[0].used, 2);
+  assert.equal(plan.weeks[0].freeAfter, 1);
+  assert.equal(Number.isFinite(plan.total), true);
+  assert.equal(Number.isFinite(plan.baseline), true);
+  assert.equal(Number.isFinite(plan.advantage), true);
+
+  let previousSquad = before;
+  for (const [index, week] of plan.weeks.entries()) {
+    assert.equal(week.gw, plan.start + index);
+    assert.equal(week.squad.length, 15);
+    assert.equal(new Set(week.squad).size, 15);
+    assert.equal(api.clubValid(week.squad), true);
+    assert.ok(week.bankAfter >= -0.001);
+    assert.equal(week.freeAfter, api.freeAfterWeek(week.gw, week.freeBefore, week.used));
+
+    const expected = week.recommendation.type === "transfer" && !week.recommendation.alreadyApplied
+      ? Array.from(api.idsAfterRecommendation(previousSquad, week.recommendation))
+      : previousSquad;
+    assert.deepEqual(Array.from(week.squad), expected);
+    assert.ok(Math.abs(api.value(week.squad) + week.bankAfter - 100) < 0.01);
+    previousSquad = Array.from(week.squad);
+  }
+
+  assert.deepEqual(plain(api.state.squad), before);
+  assert.equal(plan.finalFree, plan.weeks.at(-1).freeAfter);
+  assert.equal(plan.finalBank, plan.weeks.at(-1).bankAfter);
 });

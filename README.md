@@ -19,7 +19,8 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
                                         └─────────────────────────────────┘
 ```
 
-- **`index.html`** — monolito autocontenido: datos incorporados de los 580 jugadores y el calendario, modelo de proyección, optimizadores y las 10 pestañas de la UI en español. Sin dependencias ni build: GitHub Pages lo sirve tal cual.
+- **`index.html`** — app estática sin build: contiene los datos de 580 jugadores, calendario, modelo de proyección, optimizadores y las 10 pestañas de la UI en español.
+- **`src/season-backup.js`** — módulo clásico y namespaced para crear/validar respaldos v5 y migrar respaldos históricos, cargable también mediante `file://`.
 - **`legacy/index-v1.html`** — versión anterior de la app (solo referencia histórica).
 - **`worker/`** — configuración y respaldo del código del Cloudflare Worker (ver `worker/README.md`).
 - La app funciona sin backend (“modo seguro” con los datos incorporados) y se enriquece sola al conectar el Worker: el endpoint viene preconfigurado y se sincroniza al abrir y cada 15 minutos.
@@ -87,7 +88,8 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 ## Desarrollo y deploy
 
 - **App:** edita `index.html` y haz push a `main` — GitHub Pages publica automáticamente. Sin build.
-- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez y luego `npm test`; este comando corre las regresiones del frontend en JSDOM y el smoke del Worker. Usa `npm run test:frontend` o `npm run test:worker` para ejecutarlas por separado.
+- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez. `npm test` corre las regresiones del dominio en JSDOM y el smoke del Worker; `npm run test:e2e:install` instala Chromium y `npm run test:e2e` ejecuta el smoke de navegador real. `npm run test:all` combina ambas suites. También puedes usar `npm run test:frontend` o `npm run test:worker` por separado.
+- **CI:** GitHub Actions ejecuta `npm ci`, las regresiones y el smoke Chromium en cada pull request y push a `main`; conserva trazas, capturas y video cuando falla el navegador.
 - **Worker:** ver `worker/README.md` (deploy con `wrangler deploy`, secrets con `wrangler secret put`).
 - Prueba local: abre `index.html` en el navegador; el “modo seguro” funciona sin red.
 
@@ -101,4 +103,5 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
 - ✅ Seguimiento de valor con precios de compra, historial individual de hasta 64 cortes importados, ranking de subidas/bajadas, plusvalía/pérdida, saldo, poder de compra y respaldos compatibles.
 - ✅ Puntos reales por jornada con motor de scoring FanTeam v1, pronósticos congelados, MAE/RMSE/sesgo, acierto de capitán y retorno de transferencias a 3GW.
-- ✅ Suite de regresión frontend con 9 escenarios sobre render, scoring, migraciones, precios, respaldo v5, mejor XI y optimizador de Wildcard; `npm test` también ejecuta el smoke del Worker.
+- ✅ Suite de regresión frontend con 12 escenarios sobre render, scoring, migraciones v1-v5, precios, respaldo, recomendador, planner, mejor XI y optimizador de Wildcard; `npm test` también ejecuta el smoke del Worker.
+- ✅ Smoke E2E en Chromium para carga HTTP y `file://`, navegación, XI/banca, planner, mercado y exportación/importación de respaldos, automatizado en GitHub Actions.

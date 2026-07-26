@@ -3,10 +3,14 @@ import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
 const INDEX_PATH = fileURLToPath(new URL("../../index.html", import.meta.url));
+const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", import.meta.url));
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
 export async function createFrontendHarness() {
-  const html = await readFile(INDEX_PATH, "utf8");
+  const [html, backupModuleSource] = await Promise.all([
+    readFile(INDEX_PATH, "utf8"),
+    readFile(BACKUP_MODULE_PATH, "utf8"),
+  ]);
   const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
   if (!scriptMatch) throw new Error("No se encontró el script principal de index.html");
   if (!scriptMatch[1].includes(BOOTSTRAP)) throw new Error("Cambió el arranque esperado del frontend");
@@ -32,6 +36,15 @@ export async function createFrontendHarness() {
       priceMovementFor,
       marketPriceMovementSummary,
       bestXI,
+      recommendationFor,
+      simulateSixWeekPlan,
+      idsAfterRecommendation,
+      transferCount,
+      freeAfterWeek,
+      transferBankAfter,
+      projection,
+      horizon,
+      byId,
       optimizeWildcard,
       buyingPower,
       value,
@@ -42,6 +55,7 @@ export async function createFrontendHarness() {
   `;
 
   const source = scriptMatch[1].replace(BOOTSTRAP, exposure);
+  dom.window.eval(backupModuleSource);
   dom.window.eval(source);
 
   return {

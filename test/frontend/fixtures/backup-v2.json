@@ -1,0 +1,41 @@
+{
+  "app": "fanteam-season-lab",
+  "v": 2,
+  "exportedAt": "2026-08-29T12:00:00.000Z",
+  "endpoint": "https://example.test/worker",
+  "state": {
+    "gw": 3,
+    "free": 2,
+    "squad": [4701029, 4701100, 4700735, 4700704, 4700742, 4700706, 4701156, 4700724, 4700675, 4700636, 4700634, 4700664, 4700673, 4700643, 4700762],
+    "history": [
+      {
+        "gw": 2,
+        "decision": "Guardar transferencia",
+        "captain": "Erling Haaland",
+        "free": 1
+      }
+    ],
+    "decision": null,
+    "wc1": true,
+    "wc2": false,
+    "bank": 2.0,
+    "priceOverrides": {
+      "4700673": 13.0
+    },
+    "purchasePrices": {
+      "4700673": 12.5
+    },
+    "priceUpdatedAt": "2026-08-29T10:00:00.000Z",
+    "priceHistory": [
+      {
+        "gw": 2,
+        "at": "2026-08-29T10:00:00.000Z",
+        "currentValue": 100.5,
+        "purchaseCost": 100.0,
+        "gain": 0.5,
+        "bank": 2.0,
+        "buyingPower": 102.5
+      }
+    ]
+  }
+}

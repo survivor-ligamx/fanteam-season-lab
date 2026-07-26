@@ -1,0 +1,65 @@
+{
+  "app": "fanteam-season-lab",
+  "v": 5,
+  "exportedAt": "2026-09-19T12:00:00.000Z",
+  "endpoint": "https://example.test/worker",
+  "state": {
+    "gw": 6,
+    "free": 2,
+    "squad": [4701029, 4701100, 4700735, 4700704, 4700742, 4700706, 4701156, 4700724, 4700675, 4700636, 4700634, 4700664, 4700673, 4700643, 4700762],
+    "history": [
+      {
+        "gw": 5,
+        "decision": "Guardar transferencia",
+        "captain": "Erling Haaland",
+        "free": 1,
+        "squadIds": [4701029, 4701100, 4700735, 4700704, 4700742, 4700706, 4701156, 4700724, 4700675, 4700636, 4700634, 4700664, 4700673, 4700643, 4700762],
+        "xiIds": [4701029, 4700735, 4700704, 4700742, 4700706, 4700724, 4700675, 4700636, 4700634, 4700673, 4700643],
+        "captainId": 4700673,
+        "viceId": 4700643,
+        "projectedTotal": 63.75,
+        "forecastByPlayer": {
+          "4700673": 7.0
+        },
+        "transfers": []
+      }
+    ],
+    "decision": null,
+    "wc1": false,
+    "wc2": false,
+    "bank": 1.0,
+    "priceOverrides": {
+      "4700673": 13.0
+    },
+    "purchasePrices": {
+      "4700673": 12.5
+    },
+    "priceUpdatedAt": "2026-09-19T10:00:00.000Z",
+    "priceHistory": [],
+    "marketPriceHistory": [
+      {
+        "seq": 7,
+        "at": "2026-09-19T10:00:00.000Z",
+        "gw": 6,
+        "source": "prices.json",
+        "coverage": 580,
+        "changes": {
+          "4700673": [12.5, 13.0]
+        }
+      }
+    ],
+    "actualsByGW": {
+      "5": {
+        "importedAt": "2026-09-19T11:00:00.000Z",
+        "source": "fanteam.csv",
+        "players": {
+          "4700673": {
+            "points": 10,
+            "minutes": 90,
+            "played": true
+          }
+        }
+      }
+    }
+  }
+}
