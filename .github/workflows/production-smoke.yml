@@ -1,0 +1,57 @@
+name: Production smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/production-smoke.yml"
+
+env:
+  WORKER_URL: https://fanteam-data.brandonleon480.workers.dev
+  EXPECTED_VERSION: 2.3.0
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check health version
+        run: |
+          set -euo pipefail
+          health="$(curl --fail --silent --show-error --retry 3 "$WORKER_URL/health")"
+          echo "$health" | jq -e --arg version "$EXPECTED_VERSION" '.ok == true and .version == $version'
+
+      - name: Check latest contract
+        run: |
+          set -euo pipefail
+          payload="$(curl --fail --silent --show-error --retry 3 "$WORKER_URL/latest")"
+          echo "$payload" | jq -e --arg version "$EXPECTED_VERSION" '
+            .ok == true
+            and .version == $version
+            and (.players | type == "array")
+            and (.results | type == "array")
+            and (.sources | type == "object")
+            and (.errors | type == "object")
+            and (.freshUntil | fromdateiso8601 > now)
+          '
+          count="$(echo "$payload" | jq '.players | length')"
+          test "$count" -gt 0
+
+      - name: Check routes
+        run: |
+          set -euo pipefail
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$WORKER_URL/missing")" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X OPTIONS "$WORKER_URL/missing")" = "204"
+
+      - name: Check production CORS
+        run: |
+          set -euo pipefail
+          headers="$(curl --silent --dump-header - --output /dev/null \
+            -H 'Origin: https://survivor-ligamx.github.io' \
+            "$WORKER_URL/latest")"
+          echo "$headers" | grep -Fi 'access-control-allow-origin: https://survivor-ligamx.github.io'
+          if echo "$headers" | grep -Fqi 'access-control-allow-origin: *'; then
+            echo 'Wildcard CORS is still live' >&2
+            exit 1
+          fi
