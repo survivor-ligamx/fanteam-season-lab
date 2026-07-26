@@ -35,7 +35,7 @@ async function expectLocalDraftNotice(page) {
   await expect(notice).toBeVisible();
   await expect(notice).toContainText("No es tu plantilla oficial de FanTeam");
   await expect(notice).toContainText("no inicia sesión");
-  await expect(notice).toContainText("Ajusta sin límite antes del cierre de GW1");
+  await expect(notice).toContainText("La app revisa el borrador al abrir y cada 15 minutos");
   await expect(notice).toContainText("Copia y confirma manualmente");
 }
 
@@ -90,7 +90,7 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
   await expect(page.locator("#sideGW")).toHaveText("GW2");
   await expect(page.locator("#localDraftTitle")).toHaveText("Plan local para GW2 · no sincronizado con FanTeam");
   await expect(page.locator("#localDraftDescription")).toContainText("replica y confirma manualmente");
-  await expect(page.locator("#localDraftSteps")).not.toContainText("Ajusta sin límite");
+  await expect(page.locator("#localDraftSteps")).not.toContainText("La app revisa el borrador al abrir");
   await expect(page.locator("#pitch .player")).toHaveCount(11);
 
   expect(browserErrors).toEqual([]);

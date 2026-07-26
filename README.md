@@ -4,7 +4,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 **Producción:** https://survivor-ligamx.github.io/fanteam-season-lab/
 
-> **Alcance de la plantilla:** la app es un planificador independiente. La plantilla mostrada es un borrador/recomendación guardado en este navegador; no inicia sesión, no envía cambios ni modifica una cuenta de FanTeam. Antes del cierre de GW1 puedes ajustar el borrador sin límite y, cuando esté listo, debes copiar y confirmar manualmente en FanTeam los 15 jugadores, banca, capitán y vice.
+> **Alcance de la plantilla:** la app es un planificador independiente. La plantilla mostrada es un borrador/recomendación guardado en este navegador; no inicia sesión, no envía cambios ni modifica una cuenta de FanTeam. Mientras GW1 siga abierta y la función esté activa, el borrador se revisa al abrir la web y cada 15 minutos: solo una sincronización fresca de API-Football/FPL puede reconstruirlo por lesiones o bajas confirmadas, o por una mejora relevante calculada con datos FPL. Las alineaciones publicadas después del cierre y GNews generan alertas, pero nunca cambian jugadores por sí solas. Cada actualización queda auditada en el estado local y se puede pausar. Cuando esté listo, debes copiar y confirmar manualmente en FanTeam los 15 jugadores, banca, capitán y vice.
 
 ---
 
