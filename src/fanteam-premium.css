@@ -1218,6 +1218,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   color: #78e7ff;
   background: rgba(67, 217, 255, 0.11);
 }
+.tagOop {
+  border: 1px solid rgba(173, 116, 255, 0.5);
+  color: #d7bcff;
+  background: rgba(139, 92, 246, 0.15);
+}
 .plannerDifferential { color: #78e7ff !important; font-weight: 750; }
 
 
