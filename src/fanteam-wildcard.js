@@ -38,6 +38,7 @@
       clubValid,
       positionQuota,
       formations,
+      eligible = () => true,
     } = options || {};
     if (!Array.isArray(players)) throw new Error("players es obligatorio");
     if (typeof byId !== "function") throw new Error("byId es obligatorio");
@@ -48,6 +49,7 @@
       throw new Error("positionQuota es obligatorio");
     }
     if (!Array.isArray(formations)) throw new Error("formations es obligatorio");
+    if (typeof eligible !== "function") throw new Error("eligible debe ser una función");
 
     function squadScore(ids, scores) {
       const squad = ids.map(byId);
@@ -85,7 +87,7 @@
       const pool = { GK: [], DEF: [], MID: [], FWD: [] };
       for (const position of Object.keys(pool)) {
         const candidates = players.filter((player) => (
-          player.pos === position && player.confidence >= 45
+          player.pos === position && player.confidence >= 45 && eligible(player)
         ));
         const byScore = candidates
           .slice()

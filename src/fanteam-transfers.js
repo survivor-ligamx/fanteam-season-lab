@@ -38,12 +38,14 @@
       value,
       clubValid,
       horizon,
+      eligible = () => true,
     } = options || {};
     if (!Array.isArray(players)) throw new Error("players es obligatorio");
     if (typeof byId !== "function") throw new Error("byId es obligatorio");
     if (typeof value !== "function") throw new Error("value es obligatorio");
     if (typeof clubValid !== "function") throw new Error("clubValid es obligatorio");
     if (typeof horizon !== "function") throw new Error("horizon es obligatorio");
+    if (typeof eligible !== "function") throw new Error("eligible debe ser una función");
 
     function selectedBy(player) {
       const value = Number(player?.reference?.selectedBy);
@@ -75,7 +77,7 @@
       const moves = [];
       for (const out of squad) {
         for (const inn of players) {
-          if (inn.pos !== out.pos || ids.includes(inn.id) || inn.confidence < 45) continue;
+          if (inn.pos !== out.pos || ids.includes(inn.id) || inn.confidence < 45 || !eligible(inn)) continue;
           const next = ids.map((id) => (id === out.id ? inn.id : id));
           if (value(next) > funds + .001 || !clubValid(next)) continue;
           const gain = projected(inn, gameweek) - projected(out, gameweek);
@@ -111,7 +113,10 @@
         for (const position of ["GK", "DEF", "MID", "FWD"]) {
           candidates[position] = players
             .filter((player) => (
-              player.pos === position && !ids.includes(player.id) && player.confidence >= 45
+              player.pos === position
+              && !ids.includes(player.id)
+              && player.confidence >= 45
+              && eligible(player)
             ))
             .sort((first, second) => projected(second, gameweek) - projected(first, gameweek))
             .slice(0, 18);
