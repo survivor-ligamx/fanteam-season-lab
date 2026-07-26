@@ -998,3 +998,150 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Squad v3 — full-width tactical board and readable player cards. */
+.squadIntro {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 0 2px;
+}
+.sectionEyebrow {
+  color: #77dffb;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+.squadIntro h2 {
+  margin: 5px 0 3px;
+  font-size: clamp(25px, 3vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+}
+.squadIntro p { margin: 0; color: var(--muted); font-size: 13px; }
+.squadLegend { display: flex; gap: 9px; flex-wrap: wrap; }
+.squadLegend span {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #aab6cb;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 10px;
+  font-weight: 750;
+}
+.squadLegend i { width: 8px; height: 8px; border-radius: 50%; }
+.legendCaptain { background: var(--green); box-shadow: 0 0 10px rgba(32,217,161,.65); }
+.legendVice { background: #8e83ff; box-shadow: 0 0 10px rgba(142,131,255,.65); }
+
+#squad .squad {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+#squad .squad > div:last-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+#squad .squad > div:last-child > .card { margin-top: 0 !important; }
+#squad .pitch {
+  min-height: 720px;
+  padding: 34px 26px;
+  background:
+    linear-gradient(90deg, transparent 49.85%, rgba(255,255,255,.14) 50%, transparent 50.15%),
+    repeating-linear-gradient(90deg, rgba(31, 154, 103, .28) 0 10%, rgba(22, 128, 89, .2) 10% 20%),
+    linear-gradient(180deg, #0b4a3c, #082f2b);
+}
+#squad .pitch::before { inset: 20px; border-color: rgba(255,255,255,.2); }
+#squad .pitch::after { width: 138px; height: 138px; border-color: rgba(255,255,255,.2); }
+#squad .pitch .lineup {
+  width: 100%;
+  min-height: 146px;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  padding: 0 !important;
+}
+#squad .pitch .lineup.FWD,
+#squad .pitch .lineup.MID,
+#squad .pitch .lineup.DEF {
+  grid-template-columns: repeat(auto-fit, minmax(155px, 190px));
+}
+#squad .pitch .lineup.GK {
+  grid-template-columns: minmax(170px, 190px);
+}
+#squad .player {
+  width: 100%;
+  min-height: 140px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255,255,255,.17);
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(108,99,255,.12), transparent 45%),
+    linear-gradient(155deg, rgba(20,31,54,.98), rgba(7,15,28,.97));
+}
+#squad .playerTop { margin-bottom: 9px; }
+#squad .clubCrest { width: 36px; height: 38px; flex-basis: 36px; }
+#squad .player .playerName {
+  min-height: 36px;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.25;
+}
+#squad .playerFacts { margin: 4px 0 9px; font-size: 9px; }
+#squad .playerProjection { padding-top: 8px; }
+#squad .playerProjection strong { color: #8ce7cc; font-size: 12px; }
+
+#squad .benchRow {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+#squad .benchCard {
+  min-height: 82px;
+  padding: 12px;
+  grid-template-columns: 32px 40px minmax(0, 1fr) auto;
+  border: 1px solid rgba(151,163,255,.15);
+  background: linear-gradient(145deg, rgba(27,39,66,.72), rgba(13,22,40,.7));
+}
+#squad .benchInfo b { font-size: 12px; }
+#squad .benchInfo small { font-size: 9px; }
+#squad .benchPoints strong { font-size: 14px; }
+
+@media (max-width: 900px) {
+  .squadIntro { align-items: flex-start; flex-direction: column; gap: 12px; }
+  #squad .pitch { min-height: 670px; padding-inline: 18px; }
+  #squad .pitch .lineup.FWD,
+  #squad .pitch .lineup.MID,
+  #squad .pitch .lineup.DEF { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+  #squad .benchRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .squadIntro h2 { font-size: 26px; }
+  .squadLegend { width: 100%; }
+  #squad .pitch { min-height: 0; padding: 26px 14px; }
+  #squad .pitch::before { inset: 10px; }
+  #squad .pitch .lineup { min-height: 0; gap: 10px; margin-bottom: 13px; }
+  #squad .pitch .lineup.FWD,
+  #squad .pitch .lineup.MID,
+  #squad .pitch .lineup.DEF { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #squad .pitch .lineup.GK { grid-template-columns: minmax(145px, 170px); }
+  #squad .pitch .lineup:not(.GK) .player:last-child:nth-child(odd) {
+    width: min(170px, 100%);
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  #squad .player { min-height: 136px; padding: 10px; }
+  #squad .clubCrest { width: 31px; height: 33px; flex-basis: 31px; }
+  #squad .positionBadge, #squad .leaderBadge { height: 21px; }
+  #squad .player .playerName { min-height: 34px; font-size: 12px; }
+  #squad .playerFacts { align-items: flex-start; flex-direction: column; gap: 2px; white-space: normal; }
+  #squad .benchRow { grid-template-columns: minmax(0, 1fr); }
+  #squad .benchCard { grid-template-columns: 30px 38px minmax(0, 1fr) auto; }
+}
