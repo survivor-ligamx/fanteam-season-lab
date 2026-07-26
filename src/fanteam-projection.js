@@ -101,8 +101,10 @@
         : null;
       const match = exact || (clubMatches.length === 1 ? clubMatches[0] : null);
       if (!match) {
+        const points = base * formFactor;
         return {
-          ev: base * fixtureCeiling * formFactor,
+          ev: points * fixtureCeiling,
+          points,
           base,
           used: false,
           match: null,
@@ -119,8 +121,10 @@
       const factor = player.pos === "GK" || player.pos === "DEF"
         ? clamp(1 + .32 * winDelta - .22 * overDelta, .78, 1.24)
         : clamp(1 + .48 * winDelta + .28 * overDelta, .76, 1.32);
+      const points = base * formFactor * factor;
       return {
-        ev: base * fixtureCeiling * formFactor * factor,
+        ev: points * fixtureCeiling,
+        points,
         base,
         used: true,
         factor,
@@ -134,7 +138,8 @@
     }
 
     function bestXI(ids, gameweek) {
-      const squad = ids.map(byId);
+      if (!Array.isArray(ids)) return null;
+      const squad = ids.map(byId).filter(Boolean);
       let best = null;
       for (const [defenders, midfielders, forwards] of FORMATIONS) {
         const pick = (position, count) => squad
@@ -153,6 +158,7 @@
           best = { xi, pts: points, formation: `${defenders}-${midfielders}-${forwards}` };
         }
       }
+      if (!best) return null;
       const ranked = best.xi
         .map((player) => ({ p: player, metric: captainExpectedValue(player, gameweek) }))
         .sort((first, second) => second.metric.ev - first.metric.ev);
@@ -182,7 +188,8 @@
     }
 
     function captainedTotal(xi) {
-      return xi.pts - xi.capMetric.base + 2 * xi.capMetric.ev;
+      if (!xi?.capMetric || !Number.isFinite(xi.pts)) return 0;
+      return xi.pts - xi.capMetric.base + 2 * xi.capMetric.points;
     }
 
     function weightedHorizon(player, gameweek, weights) {

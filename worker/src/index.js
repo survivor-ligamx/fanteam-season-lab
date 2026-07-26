@@ -12,7 +12,13 @@ const DEADLINES = (
   .map((date) => `${date}T17:00:00Z`);
 
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
+const REQUEST_TIMEOUT_MS = 6000;
+const DEGRADED_TTL_SECONDS = 120;
+const ALLOWED_ORIGINS = new Set([
+  "https://survivor-ligamx.github.io",
+  "null"
+]);
 
 const TEAM_CODES = {
   Arsenal: "ARS",
@@ -42,8 +48,26 @@ const TEAM_CODES = {
 };
 
 
-function currentGameweek() {
+function currentGameweek(results = []) {
   const now = Date.now();
+  const firstKickoffByGameweek = new Map();
+  for (const match of results) {
+    const gameweek = Number(match?.gameweek);
+    const kickoff = new Date(match?.kickoff || "").getTime();
+    if (!Number.isInteger(gameweek) || gameweek < 1 || gameweek > 38) continue;
+    if (!Number.isFinite(kickoff)) continue;
+    const previous = firstKickoffByGameweek.get(gameweek);
+    if (previous == null || kickoff < previous) {
+      firstKickoffByGameweek.set(gameweek, kickoff);
+    }
+  }
+  const upcoming = Array.from(firstKickoffByGameweek, ([gameweek, kickoff]) => ({
+    gameweek,
+    deadline: kickoff - 90 * 60000
+  }))
+    .filter((entry) => entry.deadline > now)
+    .sort((first, second) => first.deadline - second.deadline || first.gameweek - second.gameweek);
+  if (upcoming.length) return upcoming[0].gameweek;
 
   for (let index = 0; index < DEADLINES.length; index++) {
     if (new Date(DEADLINES[index]).getTime() > now) {
@@ -55,25 +79,49 @@ function currentGameweek() {
 }
 
 
-function responseJSON(data, status = 200, cacheSeconds = 0) {
-  return new Response(JSON.stringify(data, null, 2), {
+function allowedOrigin(request, env) {
+  const origin = request?.headers?.get("Origin");
+  if (!origin) return null;
+  const configured = String(env?.CORS_ORIGINS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (ALLOWED_ORIGINS.has(origin) || configured.includes(origin)) return origin;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin;
+  return null;
+}
+
+
+function responseJSON(data, status = 200, cacheSeconds = 0, request = null, env = {}) {
+  const pretty = request
+    ? new URL(request.url).searchParams.get("pretty") === "1"
+    : false;
+  const origin = allowedOrigin(request, env);
+  const headers = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": cacheSeconds
+      ? `public, max-age=${cacheSeconds}`
+      : "no-store",
+    "Vary": "Origin"
+  };
+  if (origin) headers["Access-Control-Allow-Origin"] = origin;
+
+  return new Response(JSON.stringify(data, null, pretty ? 2 : 0), {
     status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Cache-Control": cacheSeconds
-        ? `public, max-age=${cacheSeconds}`
-        : "no-store"
-    }
+    headers
   });
 }
 
 
 async function safeRequest(url, options = {}) {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: fetchOptions.signal || AbortSignal.timeout(timeoutMs)
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -84,9 +132,10 @@ async function safeRequest(url, options = {}) {
       data: await response.json()
     };
   } catch (error) {
+    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
     return {
       ok: false,
-      error: error.message,
+      error: timedOut ? `timeout después de ${timeoutMs} ms` : error.message,
       data: null
     };
   }
@@ -105,6 +154,11 @@ async function getAPIFootball(env) {
   const headers = {
     "x-apisports-key": env.API_FOOTBALL_KEY
   };
+  const deadline = Date.now() + REQUEST_TIMEOUT_MS;
+  const requestWithinDeadline = (url) => safeRequest(url, {
+    headers,
+    timeoutMs: Math.max(1, deadline - Date.now())
+  });
 
   const today = new Date();
   const from = today.toISOString().slice(0, 10);
@@ -113,13 +167,11 @@ async function getAPIFootball(env) {
     .slice(0, 10);
 
   const [injuries, fixtures] = await Promise.all([
-    safeRequest(
-      "https://v3.football.api-sports.io/injuries?league=39&season=2026",
-      { headers }
+    requestWithinDeadline(
+      "https://v3.football.api-sports.io/injuries?league=39&season=2026"
     ),
-    safeRequest(
-      `https://v3.football.api-sports.io/fixtures?league=39&season=2026&from=${from}&to=${future}`,
-      { headers }
+    requestWithinDeadline(
+      `https://v3.football.api-sports.io/fixtures?league=39&season=2026&from=${from}&to=${future}`
     )
   ]);
 
@@ -136,12 +188,9 @@ async function getAPIFootball(env) {
       : [];
 
   const lineups = await Promise.all(
-    nearbyFixtures.map((item) =>
-      safeRequest(
-        `https://v3.football.api-sports.io/fixtures/lineups?fixture=${item.fixture.id}`,
-        { headers }
-      )
-    )
+    nearbyFixtures.map((item) => requestWithinDeadline(
+      `https://v3.football.api-sports.io/fixtures/lineups?fixture=${item.fixture.id}`
+    ))
   );
 
   return { injuries, fixtures, lineups };
@@ -320,6 +369,7 @@ function summarizeResults(result) {
 
   return (result.data?.matches || []).map((match) => ({
     id: match.id,
+    gameweek: match.matchday,
     kickoff: match.utcDate,
     status: match.status,
     home: match.homeTeam?.name,
@@ -405,44 +455,94 @@ function summarizeFPL(result, updatedAt) {
 
 
 async function buildPayload(env) {
-  const [apiFootball, footballData, odds, news, fpl] = await Promise.all([
+  const settled = await Promise.allSettled([
     getAPIFootball(env),
     getFootballData(env),
     getOdds(env),
     getNews(env),
     getFPLBootstrap()
   ]);
+  const failure = (result, label) => ({
+    ok: false,
+    error: result.status === "rejected"
+      ? `${label}: ${result.reason?.message || "error inesperado"}`
+      : `${label}: respuesta inválida`,
+    data: null
+  });
+  const apiFootball = settled[0].status === "fulfilled"
+    ? settled[0].value
+    : {
+      injuries: failure(settled[0], "API-Football injuries"),
+      fixtures: failure(settled[0], "API-Football fixtures"),
+      lineups: []
+    };
+  const footballData = settled[1].status === "fulfilled"
+    ? settled[1].value
+    : failure(settled[1], "football-data");
+  const odds = settled[2].status === "fulfilled"
+    ? settled[2].value
+    : failure(settled[2], "odds");
+  const news = settled[3].status === "fulfilled"
+    ? settled[3].value
+    : failure(settled[3], "news");
+  const fpl = settled[4].status === "fulfilled"
+    ? settled[4].value
+    : failure(settled[4], "FPL");
   const updatedAt = new Date().toISOString();
+  const lineupsHealthy = Array.isArray(apiFootball.lineups)
+    && apiFootball.lineups.every((result) => result?.ok);
+  const sources = {
+    apiFootball: Boolean(
+      apiFootball.fixtures?.ok
+      && apiFootball.injuries?.ok
+      && lineupsHealthy
+    ),
+    footballData: Boolean(footballData.ok),
+    odds: Boolean(odds.ok),
+    news: Boolean(news.ok),
+    fpl: Boolean(fpl.ok)
+  };
+  const activeSources = Object.values(sources).filter(Boolean).length;
+  const hasUsableData = Boolean(
+    apiFootball.fixtures?.ok
+    || apiFootball.injuries?.ok
+    || footballData.ok
+    || odds.ok
+    || news.ok
+    || fpl.ok
+  );
+  const results = summarizeResults(footballData);
 
   return {
-    ok: true,
+    ok: hasUsableData,
+    degraded: activeSources < Object.keys(sources).length,
     service: "FanTeam Data Engine",
     version: VERSION,
     updatedAt,
-    currentGW: currentGameweek(),
+    currentGW: currentGameweek(results),
 
     players: [
       ...summarizeFPL(fpl, updatedAt),
       ...parsePlayerUpdates(apiFootball)
     ],
     liveFixtures: summarizeFixtures(apiFootball.fixtures),
-    results: summarizeResults(footballData),
+    results,
     odds: summarizeOdds(odds),
     news: summarizeNews(news),
 
-    sources: {
-      apiFootball: apiFootball.fixtures.ok || apiFootball.injuries.ok,
-      footballData: footballData.ok,
-      odds: odds.ok,
-      news: news.ok,
-      fpl: fpl.ok
-    },
+    sources,
 
     errors: {
       apiFootballFixtures:
-        apiFootball.fixtures.ok ? null : apiFootball.fixtures.error,
+        apiFootball.fixtures?.ok ? null : apiFootball.fixtures?.error,
       apiFootballInjuries:
-        apiFootball.injuries.ok ? null : apiFootball.injuries.error,
+        apiFootball.injuries?.ok ? null : apiFootball.injuries?.error,
+      apiFootballLineups: lineupsHealthy
+        ? null
+        : apiFootball.lineups
+          .filter((result) => !result?.ok)
+          .map((result) => result?.error || "respuesta inválida")
+          .join("; "),
       footballData:
         footballData.ok ? null : footballData.error,
       odds:
@@ -458,69 +558,78 @@ async function buildPayload(env) {
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const latestRoute = url.pathname === "/" || url.pathname === "/latest";
+    const healthRoute = url.pathname === "/health";
+
+    if (!latestRoute && !healthRoute) {
+      return responseJSON(
+        { ok: false, error: "Ruta no encontrada" },
+        404,
+        0,
+        request,
+        env
+      );
+    }
+
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type"
-        }
-      });
+      const template = responseJSON(null, 200, 0, request, env);
+      return new Response(null, { status: 204, headers: template.headers });
     }
 
     if (request.method !== "GET") {
       return responseJSON(
         { ok: false, error: "Método no permitido" },
-        405
+        405,
+        0,
+        request,
+        env
       );
     }
 
-    const url = new URL(request.url);
-
-    if (url.pathname === "/health") {
+    if (healthRoute) {
       return responseJSON({
         ok: true,
         service: "FanTeam Data Engine",
         version: VERSION,
-        currentGW: currentGameweek(),
         updatedAt: new Date().toISOString()
-      });
+      }, 200, 0, request, env);
     }
 
     const cache = caches.default;
-    const cacheKey = new Request(
-      `${url.origin}/__fanteam_cache_v9`,
-      { method: "GET" }
-    );
+    const originBucket = allowedOrigin(request, env) || "server";
+    const pretty = url.searchParams.get("pretty") === "1" ? "pretty" : "compact";
+    const cacheBase = `${url.origin}/__fanteam_cache_v10${url.pathname}`
+      + `?cors=${encodeURIComponent(originBucket)}&format=${pretty}`;
+    const healthyKey = new Request(`${cacheBase}&quality=healthy`, { method: "GET" });
+    const degradedKey = new Request(`${cacheBase}&quality=degraded`, { method: "GET" });
 
-    const cached = await cache.match(cacheKey);
-
-    if (cached) {
-      return cached;
-    }
+    const cached = await cache.match(healthyKey) || await cache.match(degradedKey);
+    if (cached) return cached;
 
     const payload = await buildPayload(env);
 
-    // Caché adaptativa: 15 min si hay partidos en ventana (kickoff entre
-    // 3 h atrás y 4 h adelante) para capturar alineaciones y marcadores;
-    // 3 h en el resto de la semana para cuidar las cuotas de las APIs.
+    // Caché adaptativa: los payloads completos duran 15 min durante partidos
+    // o 3 h fuera de ventana. Una respuesta parcial usa una clave separada y
+    // solo dura 2 min, para no reemplazar una respuesta sana con un fallo puntual.
     const now = Date.now();
     const matchWindow = payload.liveFixtures.some((match) => {
       const kickoff = new Date(match.kickoff).getTime();
-
       return (
-        Number.isFinite(kickoff) &&
-        kickoff >= now - 3 * 3600000 &&
-        kickoff <= now + 4 * 3600000
+        Number.isFinite(kickoff)
+        && kickoff >= now - 3 * 3600000
+        && kickoff <= now + 4 * 3600000
       );
     });
-
-    const ttl = matchWindow ? 900 : 10800;
-    const response = responseJSON(payload, 200, ttl);
+    const ttl = payload.degraded
+      ? DEGRADED_TTL_SECONDS
+      : matchWindow
+        ? 900
+        : 10800;
+    const response = responseJSON(payload, 200, ttl, request, env);
+    const cacheKey = payload.degraded ? degradedKey : healthyKey;
 
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
-
     return response;
   }
 };
