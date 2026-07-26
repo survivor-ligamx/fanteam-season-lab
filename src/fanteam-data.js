@@ -311,6 +311,7 @@
         oddsUpdatedAt: source.updatedAt || null,
         news: Array.isArray(source.news) ? source.news : [],
         sources: source.sources || null,
+        sourceMeta: source.sourceMeta || null,
         errors: source.errors || null,
         updatedAt: source.updatedAt || null,
         freshUntil: source.freshUntil || null,

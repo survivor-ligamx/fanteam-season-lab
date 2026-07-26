@@ -2,51 +2,97 @@ name: Production smoke
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "23 6 * * *"
   push:
     branches: [main]
     paths:
+      - "index.html"
+      - "src/**"
       - "worker/**"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.production.config.mjs"
+      - "test/production/**"
       - ".github/workflows/production-smoke.yml"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
+  APP_URL: https://survivor-ligamx.github.io/fanteam-season-lab/
   WORKER_URL: https://fanteam-data.brandonleon480.workers.dev
-  EXPECTED_VERSION: 2.3.0
+  EXPECTED_VERSION: 2.3.1
+  EXPECTED_BUILD: api-football-resilience-v1
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Check health version
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Wait for Worker deployment
+        run: |
+          set -euo pipefail
+          ready=false
+          for attempt in $(seq 1 30); do
+            health="$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "$WORKER_URL/health" || true)"
+            payload="$(curl --fail --silent --show-error -H 'Cache-Control: no-cache' "$WORKER_URL/latest" || true)"
+            if echo "$health" | jq -e --arg version "$EXPECTED_VERSION" --arg build "$EXPECTED_BUILD" \
+              '.ok == true and .version == $version and .build == $build' >/dev/null 2>&1 \
+              && echo "$payload" | jq -e --arg version "$EXPECTED_VERSION" --arg build "$EXPECTED_BUILD" \
+                '.ok == true and .version == $version and .build == $build
+                 and (.sourceMeta.apiFootball | type == "object")
+                 and .sourceMeta.apiFootball.coordinator == "durable-object"
+                 and .sourceMeta.apiFootball.cacheStatus != "coordinator-error"
+                 and (.errors | has("apiFootballCache"))' >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            echo "Worker todavía no expone el build esperado (intento $attempt/30)"
+            sleep 10
+          done
+          test "$ready" = true
+
+      - name: Check Worker health version
         run: |
           set -euo pipefail
           health="$(curl --fail --silent --show-error --retry 3 "$WORKER_URL/health")"
-          echo "$health" | jq -e --arg version "$EXPECTED_VERSION" '.ok == true and .version == $version'
+          echo "$health" | jq -e --arg version "$EXPECTED_VERSION" --arg build "$EXPECTED_BUILD" \
+            '.ok == true and .version == $version and .build == $build'
 
-      - name: Check latest contract
+      - name: Check Worker latest contract
         run: |
           set -euo pipefail
           payload="$(curl --fail --silent --show-error --retry 3 "$WORKER_URL/latest")"
-          echo "$payload" | jq -e --arg version "$EXPECTED_VERSION" '
+          echo "$payload" | jq -e --arg version "$EXPECTED_VERSION" --arg build "$EXPECTED_BUILD" '
             .ok == true
             and .version == $version
+            and .build == $build
             and (.players | type == "array")
             and (.results | type == "array")
             and (.sources | type == "object")
+            and (.sourceMeta.apiFootball | type == "object")
+            and .sourceMeta.apiFootball.coordinator == "durable-object"
+            and .sourceMeta.apiFootball.cacheStatus != "coordinator-error"
             and (.errors | type == "object")
+            and (.errors | has("apiFootballCache"))
             and (.freshUntil | fromdateiso8601 > now)
           '
           count="$(echo "$payload" | jq '.players | length')"
           test "$count" -gt 0
 
-      - name: Check routes
+      - name: Check Worker routes and production CORS
         run: |
           set -euo pipefail
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$WORKER_URL/missing")" = "404"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X OPTIONS "$WORKER_URL/missing")" = "204"
-
-      - name: Check production CORS
-        run: |
-          set -euo pipefail
           headers="$(curl --silent --dump-header - --output /dev/null \
             -H 'Origin: https://survivor-ligamx.github.io' \
             "$WORKER_URL/latest")"
@@ -55,3 +101,46 @@ jobs:
             echo 'Wildcard CORS is still live' >&2
             exit 1
           fi
+
+      - name: Wait for GitHub Pages
+        run: |
+          set -euo pipefail
+          expected_hash="$(sha256sum index.html | cut -d' ' -f1)"
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error -H 'Cache-Control: no-cache' \
+              "$APP_URL?revision=$GITHUB_SHA-$attempt" -o /tmp/deployed-index.html; then
+              actual_hash="$(sha256sum /tmp/deployed-index.html | cut -d' ' -f1)"
+              if test "$actual_hash" = "$expected_hash"; then
+                ready=true
+                break
+              fi
+            fi
+            echo "GitHub Pages todavía no sirve index.html de $GITHUB_SHA (intento $attempt/30)"
+            sleep 10
+          done
+          test "$ready" = true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run deployed app smoke
+        run: npm run test:production
+
+      - name: Upload production diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-smoke-diagnostics
+          path: test-results/production
+          if-no-files-found: ignore
+          retention-days: 7
