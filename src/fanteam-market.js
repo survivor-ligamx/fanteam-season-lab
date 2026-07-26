@@ -323,6 +323,7 @@
           && reference?.transfersOutEvent != null
           ? reference.transfersInEvent - reference.transfersOutEvent
           : null;
+        const selectedBy = reference?.selectedBy ?? null;
         map.set(player.id, {
           pgw,
           h3,
@@ -345,7 +346,9 @@
           cleanSheets,
           cleanSheetRate: starts > 0 && cleanSheets != null ? cleanSheets / starts : null,
           cleanSheetNext: cleanSheetChance(player, gameweek, odds),
-          selectedBy: reference?.selectedBy ?? null,
+          selectedBy,
+          differentialScore: null,
+          isDifferential: false,
           netTransfers,
         });
         if (byPosition[player.pos]) byPosition[player.pos].push(player);
@@ -372,9 +375,18 @@
           : 0;
         for (const player of ranked) {
           const metric = map.get(player.id);
+          metric.isDifferential = metric.selectedBy != null
+            && metric.selectedBy <= 15
+            && metric.h3 >= medianHorizon
+            && player.confidence >= 45;
+          metric.differentialScore = metric.isDifferential
+            ? metric.h3 * (1 + (15 - metric.selectedBy) / 100)
+            : null;
           let tag = { t: "—", c: "tagNeutral" };
           if (availability(player) < 1 || metric.h3 <= 0.4) {
             tag = { t: "EVITAR", c: "tagEvitar" };
+          } else if (metric.isDifferential) {
+            tag = { t: "DIFERENCIAL", c: "tagDifferential" };
           } else if (metric.rank <= 6 && player.price >= 8.5) {
             tag = {
               t: metric.val >= topValue ? "PREMIUM+VALOR" : "PREMIUM",

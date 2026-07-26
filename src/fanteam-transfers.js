@@ -45,6 +45,18 @@
     if (typeof clubValid !== "function") throw new Error("clubValid es obligatorio");
     if (typeof horizon !== "function") throw new Error("horizon es obligatorio");
 
+    function selectedBy(player) {
+      const value = Number(player?.reference?.selectedBy);
+      return Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
+    }
+
+    function differentialMeta(player) {
+      const ownership = selectedBy(player);
+      return ownership != null && ownership <= 15
+        ? { selectedBy: ownership, source: "FPL" }
+        : null;
+    }
+
     function recommendationFor(ids, gameweek, free, allowDouble = true, funds = 100) {
       if (gameweek > 1 && free <= 0) {
         return {
@@ -54,16 +66,39 @@
         };
       }
       const squad = ids.map(byId);
-      let best = { gain: -999 };
+      const moves = [];
       for (const out of squad) {
         for (const inn of players) {
           if (inn.pos !== out.pos || ids.includes(inn.id) || inn.confidence < 45) continue;
           const next = ids.map((id) => (id === out.id ? inn.id : id));
           if (value(next) > funds + .001 || !clubValid(next)) continue;
           const gain = horizon(inn, gameweek) - horizon(out, gameweek);
-          if (gain > best.gain) best = { out, inn, gain };
+          moves.push({
+            out,
+            inn,
+            gain,
+            differential: differentialMeta(inn),
+          });
         }
       }
+      const peak = moves.reduce((current, move) => (
+        !current || move.gain > current.gain ? move : current
+      ), null);
+      let best = peak || { gain: -999 };
+      if (peak && selectedBy(peak.inn) != null) {
+        const competitive = moves
+          .filter((move) => (
+            move.out.id === peak.out.id
+            && move.gain >= peak.gain - .05
+            && selectedBy(move.inn) != null
+          ))
+          .sort((first, second) => (
+            selectedBy(first.inn) - selectedBy(second.inn)
+            || second.gain - first.gain
+          ));
+        if (competitive.length) best = competitive[0];
+      }
+      best.differentialTieBreak = Boolean(peak && best !== peak);
       let pair = null;
       if (allowDouble && free >= 2 && gameweek > 1) {
         const candidates = {};
@@ -126,12 +161,19 @@
           reason: `La mejor alternativa solo mejora ${Math.max(0, best.gain).toFixed(2)} puntos ponderados en tres jornadas. Conviene acumular la transferencia.`,
         };
       }
+      const differential = differentialMeta(best.inn);
+      const differentialNote = differential
+        ? ` ${best.inn.name} tiene ${differential.selectedBy.toFixed(1)}% de selección FPL y se señala como alternativa diferencial; la ganancia esperada sigue siendo el criterio principal.`
+        : "";
+      const tieBreakNote = best.differentialTieBreak
+        ? " La selección FPL solo desempató alternativas separadas por 0.05 puntos o menos."
+        : "";
       return {
         type: "transfer",
         ...best,
-        reason: emergency
+        reason: (emergency
           ? "El jugador saliente tiene alto riesgo de no jugar."
-          : `La mejora ponderada supera el umbral de ${threshold.toFixed(2)} puntos para gastar una transferencia.`,
+          : `La mejora ponderada supera el umbral de ${threshold.toFixed(2)} puntos para gastar una transferencia.`) + differentialNote + tieBreakNote,
       };
     }
 

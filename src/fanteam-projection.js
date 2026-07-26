@@ -20,6 +20,36 @@
     return Math.max(minimum, Math.min(maximum, value));
   }
 
+  function finite(value) {
+    if (value == null || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function ownership(player) {
+    const selectedBy = finite(player?.reference?.selectedBy);
+    return selectedBy == null ? null : clamp(selectedBy, 0, 100);
+  }
+
+  function referenceFormFactor(player, expectedPoints) {
+    const reference = player?.reference;
+    if (!reference || typeof reference !== "object") return 1;
+    const starts = finite(reference.starts) || 0;
+    const minutes = finite(reference.minutes) || 0;
+    const sample = Math.max(starts, minutes / 90);
+    const pointsPerGame = finite(reference.pointsPerGame);
+    if (sample < 3 || pointsPerGame == null || pointsPerGame <= 0) return 1;
+
+    const performance = clamp(pointsPerGame / Math.max(2, expectedPoints), .65, 1.35);
+    let factor = 1 + .28 * (performance - 1);
+    const xg90 = finite(reference.xg90);
+    if ((player.pos === "MID" || player.pos === "FWD") && xg90 != null) {
+      const benchmark = player.pos === "FWD" ? .42 : .28;
+      factor += .08 * clamp((xg90 - benchmark) / benchmark, -.5, .5);
+    }
+    return clamp(factor, .88, 1.12);
+  }
+
   function availability(player) {
     return player.confidence <= 10 ? .12 : player.confidence <= 25 ? .5 : 1;
   }
@@ -50,10 +80,19 @@
 
     function captainExpectedValue(player, gameweek) {
       const base = projection(player, gameweek);
+      const scheduled = fixture(player, gameweek);
+      const fixtureMultiplier = scheduled
+        ? clamp(1 + scheduled.adv / 250, .78, 1.22)
+        : 1;
+      // Captaincy rewards weekly ceiling more than a season-long price signal. The base
+      // projection already includes one fixture multiplier; this adds a measured ceiling
+      // adjustment so difficult/easy fixtures can rotate C/VC instead of locking one premium.
+      const fixtureCeiling = fixtureMultiplier ** 1.5;
+      const formFactor = referenceFormFactor(player, base);
+      const selectedBy = ownership(player);
       const clubMatches = getOdds().filter((match) => (
         match.gw === gameweek && (match.home === player.club || match.away === player.club)
       ));
-      const scheduled = fixture(player, gameweek);
       const exact = scheduled
         ? clubMatches.find((match) => (
           (scheduled.home && match.home === player.club && match.away === scheduled.opp)
@@ -61,16 +100,37 @@
         ))
         : null;
       const match = exact || (clubMatches.length === 1 ? clubMatches[0] : null);
-      if (!match) return { ev: base, base, used: false, match: null };
+      if (!match) {
+        return {
+          ev: base * fixtureCeiling * formFactor,
+          base,
+          used: false,
+          match: null,
+          fixtureCeiling,
+          formFactor,
+          selectedBy,
+        };
+      }
       const win = player.club === match.home ? match.homeWin : match.awayWin;
       const marketOver = Number.isFinite(match.over25) ? match.over25 : null;
       const over = marketOver ?? .55;
       const winDelta = win - .42;
       const overDelta = over - .55;
       const factor = player.pos === "GK" || player.pos === "DEF"
-        ? clamp(1 + .22 * winDelta - .16 * overDelta, .84, 1.18)
-        : clamp(1 + .30 * winDelta + .18 * overDelta, .84, 1.18);
-      return { ev: base * factor, base, used: true, factor, win, over: marketOver, match };
+        ? clamp(1 + .32 * winDelta - .22 * overDelta, .78, 1.24)
+        : clamp(1 + .48 * winDelta + .28 * overDelta, .76, 1.32);
+      return {
+        ev: base * fixtureCeiling * formFactor * factor,
+        base,
+        used: true,
+        factor,
+        fixtureCeiling,
+        formFactor,
+        selectedBy,
+        win,
+        over: marketOver,
+        match,
+      };
     }
 
     function bestXI(ids, gameweek) {
@@ -100,6 +160,23 @@
       best.vice = ranked[1].p;
       best.capMetric = ranked[0].metric;
       best.viceMetric = ranked[1].metric;
+      const differential = ranked
+        .filter((candidate) => (
+          candidate.p.id !== best.cap.id
+          && candidate.metric.selectedBy != null
+          && candidate.metric.selectedBy <= 15
+          && candidate.metric.ev >= best.capMetric.ev * .72
+          && candidate.p.confidence >= 45
+        ))
+        .sort((first, second) => {
+          const firstScore = first.metric.ev
+            * (1 + (15 - first.metric.selectedBy) / 100);
+          const secondScore = second.metric.ev
+            * (1 + (15 - second.metric.selectedBy) / 100);
+          return secondScore - firstScore || second.metric.ev - first.metric.ev;
+        })[0] || null;
+      best.differential = differential?.p || null;
+      best.differentialMetric = differential?.metric || null;
       best.oddsUsed = ranked.some((candidate) => candidate.metric.used);
       return best;
     }

@@ -32,7 +32,18 @@
       const movement = recommendation.type === "transfer"
         ? `+${recommendation.gain.toFixed(2)} pts ponderados · ${cost}`
         : "Acumular FT";
-      return `<div class="card week ${index === 0 ? "current" : ""}"><strong>GW${week.gw}</strong><div><b>${escapeHtml(transferDescription(recommendation))}</b><br><small>${movement} · saldo ${free} → ${week.freeAfter}</small></div><span>© ${escapeHtml(week.xi.cap.name)}<br><small>ⓥ ${escapeHtml(week.xi.vice.name)}</small></span><span>${week.points.toFixed(1)} pts<br><small>${week.xi.formation}</small></span></div>`;
+      const viceIsDifferential = week.xi.differential
+        && week.xi.differentialMetric
+        && week.xi.differential.id === week.xi.vice.id;
+      const viceDifferential = viceIsDifferential
+        ? ` · DIF ${Number(week.xi.differentialMetric.selectedBy).toFixed(1)}% FPL`
+        : "";
+      const differential = week.xi.differential
+        && week.xi.differentialMetric
+        && !viceIsDifferential
+        ? `<br><small class="plannerDifferential">DIF ${escapeHtml(week.xi.differential.name)} · ${Number(week.xi.differentialMetric.selectedBy).toFixed(1)}% FPL</small>`
+        : "";
+      return `<div class="card week ${index === 0 ? "current" : ""}"><strong>GW${week.gw}</strong><div><b>${escapeHtml(transferDescription(recommendation))}</b><br><small>${movement} · saldo ${free} → ${week.freeAfter}</small></div><span>© ${escapeHtml(week.xi.cap.name)}<br><small${viceIsDifferential ? " class=\"plannerDifferential\"" : ""}>(V) ${escapeHtml(week.xi.vice.name)}${viceDifferential}</small>${differential}</span><span>${week.points.toFixed(1)} pts<br><small>${week.xi.formation}</small></span></div>`;
     }).join("");
 
     const first = plan.weeks[0];
