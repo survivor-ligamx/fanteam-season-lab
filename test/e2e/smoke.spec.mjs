@@ -97,6 +97,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     projectionVersion: globalThis.FanTeamProjection?.VERSION,
     transfersType: typeof globalThis.FanTeamTransfers,
     transfersVersion: globalThis.FanTeamTransfers?.VERSION,
+    wildcardType: typeof globalThis.FanTeamWildcard,
+    wildcardVersion: globalThis.FanTeamWildcard?.VERSION,
   }))).toEqual({
     backupType: "object",
     backupVersion: 5,
@@ -110,6 +112,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     projectionVersion: "fanteam-projection-v1",
     transfersType: "object",
     transfersVersion: "fanteam-transfers-v1",
+    wildcardType: "object",
+    wildcardVersion: "fanteam-wildcard-v1",
   });
   expect(browserErrors).toEqual([]);
 });
