@@ -3,12 +3,14 @@ import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
 const INDEX_PATH = fileURLToPath(new URL("../../index.html", import.meta.url));
+const STORAGE_MODULE_PATH = fileURLToPath(new URL("../../src/season-storage.js", import.meta.url));
 const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", import.meta.url));
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
 export async function createFrontendHarness() {
-  const [html, backupModuleSource] = await Promise.all([
+  const [html, storageModuleSource, backupModuleSource] = await Promise.all([
     readFile(INDEX_PATH, "utf8"),
+    readFile(STORAGE_MODULE_PATH, "utf8"),
     readFile(BACKUP_MODULE_PATH, "utf8"),
   ]);
   const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -55,6 +57,7 @@ export async function createFrontendHarness() {
   `;
 
   const source = scriptMatch[1].replace(BOOTSTRAP, exposure);
+  dom.window.eval(storageModuleSource);
   dom.window.eval(backupModuleSource);
   dom.window.eval(source);
 
