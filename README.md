@@ -24,6 +24,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`src/fanteam-scoring.js`** — motor puro FanTeam v1 para validar estadísticas, normalizarlas y calcular puntos por posición.
 - **`src/fanteam-import.js`** — núcleo puro y namespaced para parsear CSV/JSON, emparejar jugadores y preparar actualizaciones de precios y resultados.
 - **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
+- **`src/fanteam-transfers.js`** — recomendador puro de cambios simples/dobles y transiciones de plantilla, saldo y transferencias libres.
 - **`src/season-backup.js`** — módulo clásico y namespaced para crear/validar respaldos v5 y migrar respaldos históricos, cargable también mediante `file://`.
 - **`legacy/index-v1.html`** — versión anterior de la app (solo referencia histórica).
 - **`worker/`** — configuración y respaldo del código del Cloudflare Worker (ver `worker/README.md`).
@@ -53,6 +54,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 ## Módulo de optimización
 
+- `FanTeamTransfers` encapsula la búsqueda de cambios simples y dobles, conserva los umbrales y restricciones de presupuesto/club, y calcula las transiciones puras de plantilla, saldo y transferencias libres. Recibe jugadores, horizonte y validadores mediante adaptadores; el planner y el estado siguen en la app.
 - **Tabla de optimización (Mercado):** Proy. GW / 3GW / 6GW, **Pts/M€** (valor = 3GW ÷ precio), rank por posición y etiqueta **GEMA · PREMIUM · TRAMPA · EVITAR**. Para tu plantilla también muestra precio de compra y variación; es ordenable por cualquier columna (clic en el encabezado o selector).
 - **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra. Cada importación distinta guarda un corte local por jugador (máximo 64), permite ordenar por última subida/bajada y muestra los principales movimientos en Historial.
 - **Optimizador de Wildcard (Comodines):** construye la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. Corre en el navegador en <1 s.
