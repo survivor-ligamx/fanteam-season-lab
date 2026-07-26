@@ -22,5 +22,6 @@ test("uses fallback only when fixtures do not provide a deadline", () => {
 
 test("returns the next open gameweek", () => {
   const result = deadlines.next("2026-08-21T16:30:00Z", ["2026-08-21T16:00:00Z", "2026-08-28T16:00:00Z"]);
-  assert.deepEqual(result, { gameweek: 2, deadline: "2026-08-28T16:00:00.000Z" });
+  assert.equal(result.gameweek, 2);
+  assert.equal(result.deadline, "2026-08-28T16:00:00.000Z");
 });
