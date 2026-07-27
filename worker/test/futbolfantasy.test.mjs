@@ -34,10 +34,11 @@ test("parsea alineación probable sin llamarla confirmada", () => {
   assert.equal(result.probableLineups[0].players[0].name, "David Raya");
 });
 
-test("parsea eventos y no adivina cuando el HTML es inválido", () => {
+test("parsea eventos y rechaza HTML inválido o demasiado grande", () => {
   const result = parseFutbolFantasyPage(changes, FUTBOL_FANTASY_URLS.changes, "changes", now);
   assert.equal(result.events.length, 1);
   assert.equal(parseFutbolFantasyPage("", FUTBOL_FANTASY_URLS.home, "home", now).ok, false);
+  assert.equal(parseFutbolFantasyPage("x".repeat(800_001), FUTBOL_FANTASY_URLS.home, "home", now).ok, false);
 });
 
 test("fetch agregado conserva fallos parciales y no rompe el payload", async () => {
@@ -47,4 +48,15 @@ test("fetch agregado conserva fallos parciales y no rompe el payload", async () 
   assert.equal(result.events.length, 1);
   assert.equal(result.probableLineups.length, 1);
   assert.deepEqual(result.health.errors, []);
+});
+
+test("un fallo de una página queda observable sin perder las otras", async () => {
+  const result = await fetchFutbolFantasy((url) => {
+    if (url === FUTBOL_FANTASY_URLS.lineups) return Promise.resolve(new Response("blocked", { status: 503 }));
+    return fakeFetch(url);
+  }, now);
+  assert.equal(result.ok, true);
+  assert.equal(result.news.length, 2);
+  assert.equal(result.probableLineups.length, 0);
+  assert.match(result.error, /lineups: HTTP 503/);
 });
