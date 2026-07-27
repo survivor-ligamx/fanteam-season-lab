@@ -17,6 +17,192 @@
     return Math.round(value * factor) / factor;
   }
 
+  function clamp(value, minimum, maximum) {
+    return Math.max(minimum, Math.min(maximum, value));
+  }
+
+  function positionalEdge(player) {
+    const reference = normalizeReference(player?.reference);
+    const position = player?.pos;
+    const xg90 = reference?.xg90;
+    const minutes = reference?.minutes != null
+      ? reference.minutes
+      : (reference?.starts || 0) * 60;
+    const empty = {
+      isEdge: false,
+      kind: null,
+      label: null,
+      detail: "Sin evidencia suficiente de ventaja posicional.",
+      bonus: 0,
+      strength: 0,
+      evidence: null,
+      sampleMinutes: minutes,
+      xg90,
+    };
+    if (!["DEF", "MID"].includes(position)) return empty;
+    const config = position === "MID"
+      ? {
+        threshold: .28,
+        ceiling: .65,
+        maximumBonus: .42,
+        preseasonPrice: 8,
+        kind: "attacking-midfielder",
+        label: "MID con producción de delantero",
+      }
+      : {
+        threshold: .10,
+        ceiling: .30,
+        maximumBonus: .38,
+        preseasonPrice: 5.5,
+        kind: "attacking-defender",
+        label: "DEF con amenaza ofensiva",
+      };
+    if (xg90 != null && minutes >= 450) {
+      if (xg90 < config.threshold) return empty;
+      const reliability = clamp((minutes - 270) / 900, 0, 1);
+      const intensity = clamp(
+        (xg90 - config.threshold) / (config.ceiling - config.threshold),
+        0,
+        1,
+      );
+      const strength = reliability * (.45 + .55 * intensity);
+      const bonus = rounded(config.maximumBonus * strength, 3) || 0;
+      const isEdge = bonus >= .08;
+      return {
+        isEdge,
+        kind: isEdge ? config.kind : null,
+        label: isEdge ? config.label : null,
+        detail: isEdge
+          ? `${config.label}: ${xg90.toFixed(2)} xG/90 en ${Math.round(minutes)} minutos; FanTeam conserva ${position} como posición oficial.`
+          : "La señal ofensiva todavía no supera el umbral de muestra y fuerza.",
+        bonus: isEdge ? bonus : 0,
+        strength: isEdge ? rounded(strength, 3) : 0,
+        evidence: isEdge ? "historical-xg" : null,
+        sampleMinutes: minutes,
+        xg90,
+      };
+    }
+    const price = Number(player?.price);
+    const confidence = Number(player?.confidence);
+    if (
+      Number.isFinite(price)
+      && price >= config.preseasonPrice
+      && Number.isFinite(confidence)
+      && confidence >= 68
+    ) {
+      const priceStrength = clamp(
+        (price - config.preseasonPrice) / 4,
+        0,
+        1,
+      );
+      const strength = .22 + .18 * priceStrength;
+      const bonus = rounded(config.maximumBonus * strength, 3) || 0;
+      return {
+        isEdge: bonus >= .08,
+        kind: `${config.kind}-preseason`,
+        label: `${config.label} probable`,
+        detail: `Señal provisional de pretemporada por clasificación ${position}, precio ${price.toFixed(1)}M y ${Math.round(confidence)}% de confianza; se reemplazará por evidencia xG cuando exista muestra suficiente.`,
+        bonus,
+        strength: rounded(strength, 3),
+        evidence: "preseason-prior",
+        sampleMinutes: minutes,
+        xg90,
+      };
+    }
+    return empty;
+  }
+
+  function lowCeilingMidfielder(player) {
+    const reference = normalizeReference(player?.reference);
+    const pointsPerGame = reference?.pointsPerGame;
+    const xg90 = reference?.xg90;
+    const price = finite(player?.price);
+    const minutes = reference?.minutes;
+    const empty = {
+      isRisk: false,
+      kind: null,
+      label: null,
+      detail: "Sin evidencia suficiente de mediocampista de bajo techo.",
+      penalty: 0,
+      strength: 0,
+      sampleMinutes: minutes,
+      pointsPerGame,
+      xg90,
+      price,
+    };
+    if (
+      player?.pos !== "MID"
+      || price == null
+      || price > 5.5
+      || minutes < 900
+      || pointsPerGame == null
+      || xg90 == null
+      || pointsPerGame > 3.3
+      || xg90 > .10
+    ) return empty;
+    const reliability = clamp((minutes - 450) / 1350, 0, 1);
+    const scoringGap = clamp((3.3 - pointsPerGame) / 1.2, 0, 1);
+    const attackingGap = clamp((.10 - xg90) / .10, 0, 1);
+    const strength = reliability * (.5 + .25 * scoringGap + .25 * attackingGap);
+    const penalty = rounded(1.25 * strength, 3) || 0;
+    if (penalty < .2) return empty;
+    return {
+      isRisk: true,
+      kind: "budget-enabler-midfielder",
+      label: "MID defensivo · habilitador",
+      detail: `Medio barato de baja producción ofensiva: ${price.toFixed(1)}M, ${pointsPerGame.toFixed(1)} pts/partido y ${xg90.toFixed(2)} xG/90 en ${Math.round(minutes)} minutos. No es un titular preferente ni un diferencial; puede entrar en banca si el ahorro mejora claramente el resto de la plantilla.`,
+      penalty,
+      strength: rounded(strength, 3),
+      sampleMinutes: minutes,
+      pointsPerGame,
+      xg90,
+      price,
+    };
+  }
+
+  function differentialEdge(player, projectedPoints = null) {
+    const reference = normalizeReference(player?.reference);
+    const selectedBy = reference?.selectedBy;
+    const pointsPerGame = reference?.pointsPerGame;
+    const minutes = reference?.minutes != null
+      ? reference.minutes
+      : (reference?.starts || 0) * 60;
+    const empty = {
+      isEdge: false,
+      bonus: 0,
+      selectedBy,
+      detail: "Sin evidencia suficiente de diferencial de calidad.",
+    };
+    if (selectedBy == null || selectedBy < 0 || selectedBy > 15) return empty;
+    if (lowCeilingMidfielder(player).isRisk) return empty;
+    const positional = positionalEdge(player);
+    const performanceQuality = pointsPerGame == null
+      ? 0
+      : clamp((pointsPerGame - 3) / 2.5, 0, 1);
+    const attackingQuality = positional.isEdge
+      ? clamp(positional.strength, 0, 1)
+      : 0;
+    const modelQuality = Number.isFinite(Number(projectedPoints))
+      ? clamp((Number(projectedPoints) - 10) / 12, 0, 1)
+      : 0;
+    const quality = Math.max(performanceQuality, attackingQuality, modelQuality);
+    if (quality < .2) return empty;
+    const rarity = clamp((16 - selectedBy) / 16, 0, 1);
+    const reliability = minutes >= 450
+      ? clamp((minutes - 270) / 900, 0, 1)
+      : positional.evidence === "preseason-prior" || modelQuality >= .2
+        ? .35
+        : 0;
+    const bonus = rounded(.14 * rarity * (.4 + .6 * quality) * reliability, 3) || 0;
+    if (bonus < .015) return empty;
+    return {
+      isEdge: true,
+      bonus,
+      selectedBy,
+      detail: `Diferencial de calidad: ${selectedBy.toFixed(1)}% de selección FPL (proxy, no ownership FanTeam) con respaldo ${minutes >= 450 ? `de ${Math.round(minutes)} minutos` : "provisional del modelo de pretemporada"}.`,
+    };
+  }
+
   function poisson(lambda, goals) {
     let probability = Math.exp(-lambda);
     for (let index = 1; index <= goals; index += 1) {
@@ -349,6 +535,9 @@
           selectedBy,
           differentialScore: null,
           isDifferential: false,
+          differentialEdge: differentialEdge(player, h6),
+          positionalEdge: positionalEdge(player),
+          lowCeilingMidfielder: lowCeilingMidfielder(player),
           netTransfers,
         });
         if (byPosition[player.pos]) byPosition[player.pos].push(player);
@@ -375,7 +564,8 @@
           : 0;
         for (const player of ranked) {
           const metric = map.get(player.id);
-          metric.isDifferential = metric.selectedBy != null
+          metric.isDifferential = metric.differentialEdge.isEdge
+            && metric.selectedBy != null
             && metric.selectedBy <= 15
             && metric.h3 >= medianHorizon
             && player.confidence >= 45;
@@ -385,6 +575,12 @@
           let tag = { t: "—", c: "tagNeutral" };
           if (availability(player) < 1 || metric.h3 <= 0.4) {
             tag = { t: "EVITAR", c: "tagEvitar" };
+          } else if (metric.lowCeilingMidfielder.isRisk) {
+            tag = { t: "HABILITADOR", c: "tagLowCeiling" };
+          } else if (metric.positionalEdge.isEdge && metric.isDifferential) {
+            tag = { t: "POS.+DIF", c: "tagOop" };
+          } else if (metric.positionalEdge.isEdge) {
+            tag = { t: "VENTAJA POS.", c: "tagOop" };
           } else if (metric.isDifferential) {
             tag = { t: "DIFERENCIAL", c: "tagDifferential" };
           } else if (metric.rank <= 6 && player.price >= 8.5) {
@@ -451,6 +647,9 @@
     VERSION,
     MAX_GAMEWEEK,
     create,
+    differentialEdge,
+    lowCeilingMidfielder,
     marketGoalModel,
+    positionalEdge,
   });
 })(globalThis);

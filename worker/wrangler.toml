@@ -15,3 +15,13 @@ compatibility_date = "2026-07-01"
 #   FOOTBALL_DATA_KEY  → Football-Data.org (calendario/resultados PL)
 #   ODDS_API_KEY       → The Odds API (momios)
 #   GNEWS_API_KEY      → GNews (noticias)
+
+
+[durable_objects]
+bindings = [
+  { name = "API_FOOTBALL_COORDINATOR", class_name = "APIFootballCoordinator" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["APIFootballCoordinator"]

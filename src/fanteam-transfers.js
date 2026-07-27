@@ -38,12 +38,22 @@
       value,
       clubValid,
       horizon,
+      eligible = () => true,
+      candidatePenalty = () => 0,
+      differentialEligible = () => true,
     } = options || {};
     if (!Array.isArray(players)) throw new Error("players es obligatorio");
     if (typeof byId !== "function") throw new Error("byId es obligatorio");
     if (typeof value !== "function") throw new Error("value es obligatorio");
     if (typeof clubValid !== "function") throw new Error("clubValid es obligatorio");
     if (typeof horizon !== "function") throw new Error("horizon es obligatorio");
+    if (typeof eligible !== "function") throw new Error("eligible debe ser una función");
+    if (typeof candidatePenalty !== "function") {
+      throw new Error("candidatePenalty debe ser una función");
+    }
+    if (typeof differentialEligible !== "function") {
+      throw new Error("differentialEligible debe ser una función");
+    }
 
     function selectedBy(player) {
       const value = Number(player?.reference?.selectedBy);
@@ -52,17 +62,21 @@
 
     function differentialMeta(player) {
       const ownership = selectedBy(player);
-      return ownership != null && ownership <= 15
+      return differentialEligible(player) && ownership != null && ownership <= 15
         ? { selectedBy: ownership, source: "FPL" }
         : null;
     }
 
     function recommendationFor(ids, gameweek, free, allowDouble = true, funds = 100) {
       const horizonCache = new Map();
-      const projected = (player) => {
+      const rawProjected = (player) => {
         const key = `${player.id}|${gameweek}`;
         if (!horizonCache.has(key)) horizonCache.set(key, horizon(player, gameweek));
         return horizonCache.get(key);
+      };
+      const projected = (player) => {
+        const penalty = Math.max(0, Number(candidatePenalty(player, gameweek)) || 0);
+        return rawProjected(player) - penalty;
       };
       if (gameweek > 1 && free <= 0) {
         return {
@@ -75,14 +89,16 @@
       const moves = [];
       for (const out of squad) {
         for (const inn of players) {
-          if (inn.pos !== out.pos || ids.includes(inn.id) || inn.confidence < 45) continue;
+          if (inn.pos !== out.pos || ids.includes(inn.id) || inn.confidence < 45 || !eligible(inn)) continue;
           const next = ids.map((id) => (id === out.id ? inn.id : id));
           if (value(next) > funds + .001 || !clubValid(next)) continue;
           const gain = projected(inn, gameweek) - projected(out, gameweek);
+          const rawGain = rawProjected(inn) - rawProjected(out);
           moves.push({
             out,
             inn,
             gain,
+            rawGain,
             differential: differentialMeta(inn),
           });
         }
@@ -97,6 +113,7 @@
             move.out.id === peak.out.id
             && move.gain >= peak.gain - .05
             && selectedBy(move.inn) != null
+            && differentialEligible(move.inn)
           ))
           .sort((first, second) => (
             selectedBy(first.inn) - selectedBy(second.inn)
@@ -111,7 +128,10 @@
         for (const position of ["GK", "DEF", "MID", "FWD"]) {
           candidates[position] = players
             .filter((player) => (
-              player.pos === position && !ids.includes(player.id) && player.confidence >= 45
+              player.pos === position
+              && !ids.includes(player.id)
+              && player.confidence >= 45
+              && eligible(player)
             ))
             .sort((first, second) => projected(second, gameweek) - projected(first, gameweek))
             .slice(0, 18);
@@ -123,6 +143,7 @@
             const baseIds = ids.filter((id) => id !== firstOut.id && id !== secondOut.id);
             const budget = funds + .001 - value(baseIds);
             const outgoingHorizon = projected(firstOut, gameweek) + projected(secondOut, gameweek);
+            const rawOutgoingHorizon = rawProjected(firstOut) + rawProjected(secondOut);
             for (const firstIn of candidates[firstOut.pos]) {
               for (const secondIn of candidates[secondOut.pos]) {
                 if (secondIn.id === firstIn.id) continue;
@@ -130,6 +151,9 @@
                 const gain = projected(firstIn, gameweek)
                   + projected(secondIn, gameweek)
                   - outgoingHorizon;
+                const rawGain = rawProjected(firstIn)
+                  + rawProjected(secondIn)
+                  - rawOutgoingHorizon;
                 if (pair && gain <= pair.gain) continue;
                 const nextIds = baseIds.concat([firstIn.id, secondIn.id]);
                 if (!clubValid(nextIds)) continue;
@@ -139,6 +163,7 @@
                   out2: secondOut,
                   inn2: secondIn,
                   gain,
+                  rawGain,
                 };
               }
             }
@@ -155,7 +180,8 @@
           out2: pair.out2,
           inn2: pair.inn2,
           gain: pair.gain,
-          reason: `Doble cambio con tus dos transferencias libres: mejora conjunta de ${pair.gain.toFixed(2)} puntos ponderados, ${(pair.gain - singleGain).toFixed(2)} más que el mejor cambio individual.`,
+          rawGain: pair.rawGain,
+          reason: `Doble cambio con tus dos transferencias libres: mejora estratégica conjunta de ${pair.gain.toFixed(2)}, ${(pair.gain - singleGain).toFixed(2)} más que el mejor cambio individual; la proyección bruta cambia ${pair.rawGain >= 0 ? "+" : ""}${pair.rawGain.toFixed(2)} puntos.`,
         };
       }
       const emergency = best.out && best.out.confidence < 25;
@@ -164,7 +190,8 @@
         return {
           type: "save",
           gain: Math.max(0, best.gain),
-          reason: `La mejor alternativa solo mejora ${Math.max(0, best.gain).toFixed(2)} puntos ponderados en tres jornadas. Conviene acumular la transferencia.`,
+          rawGain: Number.isFinite(best.rawGain) ? best.rawGain : 0,
+          reason: `La mejor alternativa solo mejora ${Math.max(0, best.gain).toFixed(2)} de valor estratégico en tres jornadas. Conviene acumular la transferencia.`,
         };
       }
       const differential = differentialMeta(best.inn);
@@ -179,7 +206,7 @@
         ...best,
         reason: (emergency
           ? "El jugador saliente tiene alto riesgo de no jugar."
-          : `La mejora ponderada supera el umbral de ${threshold.toFixed(2)} puntos para gastar una transferencia.`) + differentialNote + tieBreakNote,
+          : `La mejora estratégica supera el umbral de ${threshold.toFixed(2)} para gastar una transferencia; la proyección bruta cambia ${best.rawGain >= 0 ? "+" : ""}${best.rawGain.toFixed(2)} puntos.`) + differentialNote + tieBreakNote,
       };
     }
 

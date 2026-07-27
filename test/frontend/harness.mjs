@@ -18,11 +18,12 @@ const WEEK_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-week.js", impo
 const PLANNER_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-planner.js", import.meta.url));
 const PLANNER_VIEW_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-planner-view.js", import.meta.url));
 const WILDCARD_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-wildcard.js", import.meta.url));
+const DEADLINES_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-deadlines.js", import.meta.url));
 const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", import.meta.url));
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
 export async function createFrontendHarness() {
-  const [html, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, stateModuleSource, dataModuleSource, oddsModuleSource, projectionModuleSource, marketModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, backupModuleSource] = await Promise.all([
+  const [html, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, stateModuleSource, dataModuleSource, oddsModuleSource, projectionModuleSource, marketModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, deadlinesModuleSource, backupModuleSource] = await Promise.all([
     readFile(INDEX_PATH, "utf8"),
     readFile(STORAGE_MODULE_PATH, "utf8"),
     readFile(SCORING_MODULE_PATH, "utf8"),
@@ -39,6 +40,7 @@ export async function createFrontendHarness() {
     readFile(PLANNER_MODULE_PATH, "utf8"),
     readFile(PLANNER_VIEW_MODULE_PATH, "utf8"),
     readFile(WILDCARD_MODULE_PATH, "utf8"),
+    readFile(DEADLINES_MODULE_PATH, "utf8"),
     readFile(BACKUP_MODULE_PATH, "utf8"),
   ]);
   const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -55,6 +57,7 @@ export async function createFrontendHarness() {
       get players() { return PLAYERS; },
       get initial() { return INITIAL.slice(); },
       get state() { return state; },
+      get sync() { return SYNC; },
       setState(next) { state = migrateState(next); MKT = { gw: 0, stamp: null, map: null }; return state; },
       createSeasonBackup,
       parseSeasonBackup,
@@ -72,6 +75,12 @@ export async function createFrontendHarness() {
       resolveClubCode,
       applyPlayerUpdates,
       applyResults,
+      prepareDeadlineState,
+      deadlineList,
+      gwDeadline,
+      detectedGW,
+      advanceDetectedGameweek,
+      renderCountdown,
       normalizeFanTeamStats,
       calculateFanTeamPoints,
       parsePriceInput,
@@ -102,6 +111,11 @@ export async function createFrontendHarness() {
       horizon,
       byId,
       optimizeWildcard,
+      wildcardWorkerPayload,
+      validateWildcardCandidate,
+      optimizeWildcardInWorker,
+      runWildcardOptimization,
+      clearWildcardPlan,
       wildcardStatus,
       applyWildcard,
       buyingPower,
@@ -128,6 +142,7 @@ export async function createFrontendHarness() {
   dom.window.eval(plannerModuleSource);
   dom.window.eval(plannerViewModuleSource);
   dom.window.eval(wildcardModuleSource);
+  dom.window.eval(deadlinesModuleSource);
   dom.window.eval(backupModuleSource);
   dom.window.eval(source);
 

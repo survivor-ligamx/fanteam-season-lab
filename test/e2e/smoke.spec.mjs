@@ -30,6 +30,15 @@ const workerPayload = {
   errors: {},
 };
 
+async function expectLocalDraftNotice(page) {
+  const notice = page.locator("#localDraftNotice");
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("No es tu plantilla oficial de FanTeam");
+  await expect(notice).toContainText("no inicia sesión");
+  await expect(notice).toContainText("La app revisa el borrador al abrir y cada 15 minutos");
+  await expect(notice).toContainText("Copia y confirma manualmente");
+}
+
 test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-08-20T12:00:00.000Z") });
   const browserErrors = [];
@@ -41,6 +50,8 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
 
   await page.goto("/");
   await expect(page).toHaveTitle("FanTeam Intelligence 2026/27");
+  await expectLocalDraftNotice(page);
+  await expect(page.locator("#confirmWeek")).toHaveText("Confirmar jornada en este planificador");
   await expect(page.locator("#captainName")).not.toHaveText("—");
   await expect(page.locator("#pitch .player")).toHaveCount(11);
   await expect(page.locator("#bench .benchCard")).toHaveCount(4);
@@ -58,6 +69,11 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
   await expect(page.locator("#market thead")).toContainText("PPM");
   await expect(page.locator("#market thead")).toContainText("Programa 3GW");
 
+  await page.locator('button[data-tab="wildcards"]').click();
+  await page.locator("#wcOptimize").click();
+  await expect(page.locator("#wcOptResult")).toContainText("Worker del navegador", { timeout: 20_000 });
+  await expect(page.locator("#wcOptResult .benchCard")).toHaveCount(15);
+
   await page.locator('button[data-tab="squad"]').click();
   const downloadPromise = page.waitForEvent("download");
   await page.locator("#exportSeason").click();
@@ -72,12 +88,16 @@ test("navega, renderiza y restaura un backup legacy en Chromium", async ({ page 
   await page.locator("#importFile").setInputFiles(V1_FIXTURE);
   await expect(page.locator("#toast")).toContainText("Temporada importada");
   await expect(page.locator("#sideGW")).toHaveText("GW2");
+  await expect(page.locator("#localDraftTitle")).toHaveText("Plan local para GW2 · no sincronizado con FanTeam");
+  await expect(page.locator("#localDraftDescription")).toContainText("replica y confirma manualmente");
+  await expect(page.locator("#localDraftSteps")).not.toContainText("La app revisa el borrador al abrir");
   await expect(page.locator("#pitch .player")).toHaveCount(11);
 
   expect(browserErrors).toEqual([]);
 });
 
 test("abre la aplicación y sus módulos clásicos mediante file://", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
   await page.clock.install({ time: new Date("2026-08-20T12:00:00.000Z") });
   const browserErrors = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
@@ -88,6 +108,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
 
   await page.goto(APP_FILE_URL);
   await expect(page).toHaveTitle("FanTeam Intelligence 2026/27");
+  await expectLocalDraftNotice(page);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator("#pitch .player")).toHaveCount(11);
   await expect(page.locator("#bench .benchCard")).toHaveCount(4);
   expect(await page.evaluate(() => ({
@@ -121,6 +143,8 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     plannerViewVersion: globalThis.FanTeamPlannerView?.VERSION,
     wildcardType: typeof globalThis.FanTeamWildcard,
     wildcardVersion: globalThis.FanTeamWildcard?.VERSION,
+    deadlinesType: typeof globalThis.FanTeamDeadlines,
+    deadlinesVersion: globalThis.FanTeamDeadlines?.VERSION,
   }))).toEqual({
     backupType: "object",
     backupVersion: 5,
@@ -152,6 +176,14 @@ test("abre la aplicación y sus módulos clásicos mediante file://", async ({ p
     plannerViewVersion: "fanteam-planner-view-v1",
     wildcardType: "object",
     wildcardVersion: "fanteam-wildcard-v1",
+    deadlinesType: "object",
+    deadlinesVersion: "fanteam-deadlines-v1",
   });
+
+  await page.locator('button[data-tab="wildcards"]').click();
+  await page.locator("#wcOptimize").click();
+  await expect(page.locator("#wcOptResult")).toContainText("fallback seguro", { timeout: 20_000 });
+  await expect(page.locator("#wcOptResult .benchCard")).toHaveCount(15);
+
   expect(browserErrors).toEqual([]);
 });

@@ -5,6 +5,7 @@
   const MAX_GAMEWEEK = 38;
   const MAX_FREE_TRANSFERS = 37;
   const MAX_MARKET_SNAPSHOTS = 64;
+  const MAX_AUTO_DRAFT_HISTORY = 24;
 
   function create(options) {
     const {
@@ -318,6 +319,85 @@
       state.seasonComplete = Boolean(source.seasonComplete)
         || (state.gw === MAX_GAMEWEEK && state.history.some((entry) => entry?.gw === MAX_GAMEWEEK));
 
+      const sourceAutoDraft = source.autoDraft && typeof source.autoDraft === "object"
+        ? source.autoDraft
+        : {};
+      const autoDraftDate = (value) => {
+        const time = new Date(value || "").getTime();
+        return Number.isFinite(time) ? new Date(time).toISOString() : null;
+      };
+      const autoDraftHistory = [];
+      const validAuditSquad = (ids) => {
+        if (ids.length !== 15 || new Set(ids).size !== 15) return false;
+        const positions = {};
+        const clubs = {};
+        for (const id of ids) {
+          const player = playerByNumericId.get(Number(id));
+          if (!player) return false;
+          positions[player.pos] = (positions[player.pos] || 0) + 1;
+          clubs[player.club] = (clubs[player.club] || 0) + 1;
+        }
+        return Object.entries(expectedPositions).every(
+          ([position, count]) => positions[position] === count,
+        ) && Object.values(clubs).every((count) => count <= 3);
+      };
+      for (const raw of Array.isArray(sourceAutoDraft.history) ? sourceAutoDraft.history : []) {
+        if (!raw || typeof raw !== "object") continue;
+        const at = autoDraftDate(raw.at);
+        const before = Array.isArray(raw.before)
+          ? raw.before.map(Number).filter(knownPlayer)
+          : [];
+        const after = Array.isArray(raw.after)
+          ? raw.after.map(Number).filter(knownPlayer)
+          : [];
+        if (!at || !validAuditSquad(before) || !validAuditSquad(after)) continue;
+        const trigger = raw.trigger === "confirmed-availability"
+          ? "confirmed-availability"
+          : raw.trigger === "policy-migration"
+            ? "policy-migration"
+            : "model-improvement";
+        const policyMigration = raw.policyMigration === true || trigger === "policy-migration";
+        autoDraftHistory.push({
+          at,
+          before,
+          after,
+          reason: typeof raw.reason === "string" ? raw.reason.slice(0, 240) : "",
+          trigger,
+          policyMigration,
+          gain: Number.isFinite(Number(raw.gain)) ? +Number(raw.gain).toFixed(3) : 0,
+          source: trigger === "confirmed-availability"
+            ? policyMigration
+              ? "API-Football + FPL + política"
+              : "API-Football"
+            : trigger === "policy-migration"
+              ? "FPL + política"
+              : "FPL + modelo",
+          fingerprint: typeof raw.fingerprint === "string"
+            ? raw.fingerprint.slice(0, 32)
+            : "",
+          dataUpdatedAt: autoDraftDate(raw.dataUpdatedAt),
+          freshUntil: autoDraftDate(raw.freshUntil),
+        });
+      }
+      state.autoDraft = {
+        enabled: sourceAutoDraft.enabled !== false,
+        status: typeof sourceAutoDraft.status === "string"
+          ? sourceAutoDraft.status.slice(0, 32)
+          : "waiting",
+        detail: typeof sourceAutoDraft.detail === "string"
+          ? sourceAutoDraft.detail.slice(0, 320)
+          : "Esperando una sincronización fresca antes de revisar el borrador de GW1.",
+        policyVersion: typeof sourceAutoDraft.policyVersion === "string"
+          ? sourceAutoDraft.policyVersion.slice(0, 64)
+          : "",
+        lastInputFingerprint: typeof sourceAutoDraft.lastInputFingerprint === "string"
+          ? sourceAutoDraft.lastInputFingerprint.slice(0, 32)
+          : "",
+        lastCheckedAt: autoDraftDate(sourceAutoDraft.lastCheckedAt),
+        lastUpdatedAt: autoDraftDate(sourceAutoDraft.lastUpdatedAt),
+        history: autoDraftHistory.slice(-MAX_AUTO_DRAFT_HISTORY),
+      };
+
       const cleanActuals = {};
       if (source.actualsByGW && typeof source.actualsByGW === "object") {
         for (const [rawGameweek, bucket] of Object.entries(source.actualsByGW)) {
@@ -414,6 +494,9 @@
             out2: outgoing2,
             inn2: incoming2,
             gain: Number(decision.gain) || 0,
+            rawGain: Number.isFinite(Number(decision.rawGain))
+              ? Number(decision.rawGain)
+              : null,
             reason: typeof decision.reason === "string" ? decision.reason : "",
           }
           : null;
@@ -421,6 +504,7 @@
         state.decision = {
           type: "save",
           gain: 0,
+          rawGain: 0,
           reason: typeof decision.reason === "string"
             ? decision.reason
             : "Decidiste acumular la transferencia gratuita.",

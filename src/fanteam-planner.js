@@ -52,6 +52,7 @@
             decision: {
               type: "save",
               gain: 0,
+              rawGain: 0,
               reason: recommendation.reason || "Decidiste acumular la transferencia gratuita.",
             },
           },
@@ -92,6 +93,7 @@
               out2: recommendation.out2,
               inn2: recommendation.inn2,
               gain: recommendation.gain,
+              rawGain: recommendation.rawGain,
               reason: recommendation.reason,
             },
         },

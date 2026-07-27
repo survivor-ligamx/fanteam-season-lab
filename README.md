@@ -4,6 +4,8 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 
 **Producción:** https://survivor-ligamx.github.io/fanteam-season-lab/
 
+> **Alcance de la plantilla:** la app es un planificador independiente. La plantilla mostrada es un borrador/recomendación guardado en este navegador; no inicia sesión, no envía cambios ni modifica una cuenta de FanTeam. Mientras GW1 siga abierta y la función esté activa, el borrador se revisa al abrir la web y cada 15 minutos: solo una sincronización fresca de API-Football/FPL puede reconstruirlo por lesiones o bajas confirmadas, o por una mejora relevante calculada con datos FPL. Las alineaciones publicadas después del cierre y GNews generan alertas, pero nunca cambian jugadores por sí solas. Cada actualización queda auditada en el estado local y se puede pausar. Cuando esté listo, debes copiar y confirmar manualmente en FanTeam los 15 jugadores, banca, capitán y vice.
+
 ---
 
 ## Arquitectura
@@ -28,9 +30,11 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **`src/fanteam-finance.js`** — núcleo puro de valoración, coste de compra, poder adquisitivo y límite de jugadores por club.
 - **`src/fanteam-state.js`** — normalizador puro y compatible del estado de temporada: reconstruye respaldos y localStorage, sanea históricos, precios, resultados y decisiones, y devuelve los precios derivados sin mutar la entrada ni el catálogo.
 - **`src/fanteam-data.js`** — ingestor puro del payload del Worker: resuelve clubes y jugadores, prepara confianza/minutos/estado, normaliza marcadores y deriva deadlines/GW sin tocar catálogo, estado, caché ni DOM.
+- **`src/fanteam-deadlines.js`** — regla pura de cierres: toma el kickoff más temprano de cada jornada, resta 90 minutos y conserva el calendario incorporado como fallback.
+- **`src/fanteam-wildcard-worker.js`** — ejecuta la búsqueda intensiva de Wildcard fuera del hilo principal; recibe únicamente un snapshot serializable de catálogo, puntuaciones y restricciones.
 - **`src/fanteam-odds.js`** — núcleo puro de momios: valida frescura, asigna jornadas, elimina margen de `h2h`/`totals` y agrega probabilidades multicasa sin leer reloj, estado, caché, almacenamiento ni DOM.
 - **`src/fanteam-projection.js`** — modelo puro de disponibilidad, proyección, horizontes, selección del mejor XI y capitanía con momios opcionales.
-- **`src/fanteam-market.js`** — analítica pura de Mercado: conserva proyecciones/ranks/etiquetas, construye el programa 3GW, resume puntos/PP/PPM/minutos/partidos, calcula CS próxima GW con Poisson y genera trackers sin acceder a DOM, red, reloj, almacenamiento ni estado global.
+- **`src/fanteam-market.js`** — analítica pura de Mercado: conserva proyecciones/ranks/etiquetas, construye el programa 3GW, resume puntos/PP/PPM/minutos/partidos, calcula CS próxima GW con Poisson, detecta ventajas posicionales probables (sin alterar la posición FanTeam) y diferenciales de calidad usando selección FPL solo como proxy, identifica MID defensivos de bajo techo cuando una muestra madura combina poco xG y apenas 2–3 puntos por partido, y genera trackers sin acceder a DOM, red, reloj, almacenamiento ni estado global.
 - **`src/fanteam-transfers.js`** — recomendador puro de cambios simples/dobles y transiciones de plantilla, saldo y transferencias libres.
 - **`src/fanteam-week.js`** — cierre semanal puro y atómico: congela historial/valor, consume FT, avanza la jornada y finaliza GW38 sin mutar el estado.
 - **`src/fanteam-planner.js`** — simulador puro del plan encadenado de seis jornadas y transición pura para aplicar su decisión actual, con presupuesto, FT y baseline sin transferencias.
@@ -76,7 +80,7 @@ Laboratorio de decisiones para el **juego de temporada de FanTeam** (Premier Lea
 - **Programa y CS próxima GW:** muestra chips para las siguientes tres jornadas con local/visitante, rival y dificultad. La probabilidad CS de la próxima GW solo se calcula si existen mercados frescos `h2h` + total 2.5: deriva el lambda total, calibra lambdas local/visitante y aplica Poisson (`P(CS)=e^-lambda rival`); si faltan momios suficientes muestra `—`.
 - **Market tracker:** combina los cortes de precio FanTeam importados con compras/ventas netas y selección de referencia FPL, manteniendo claramente separadas ambas fuentes.
 - **Seguimiento de precios y valor:** importa precios actuales mediante JSON o CSV (`id,name,club,price`) con emparejamiento seguro; conserva el coste de adquisición, calcula valor actual, plusvalía/pérdida, saldo y poder de compra. Cada importación distinta guarda un corte local por jugador (máximo 64), permite ordenar por última subida/bajada y muestra los principales movimientos en Historial.
-- **Optimizador de Wildcard (Comodines):** `FanTeamWildcard` construye de forma determinista la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. La Wildcard 1 solo se aplica entre los cierres de GW1 y GW19, y la Wildcard 2 entre los cierres de GW19 y GW38; cada una caduca al final de su ventana. Aplicarla reemplaza atómicamente los 15 jugadores, actualiza saldo y precios de compra, reinicia las transferencias libres y consume el comodín sin penalización de −4.
+- **Optimizador de Wildcard (Comodines):** `FanTeamWildcard` construye de forma determinista la mejor plantilla de 15 desde cero — greedy inicial + *hill climbing* (1-swap y 2-swap) maximizando el XI a 6 jornadas con banca ponderada al 8%, bajo el poder de compra actual (valor de plantilla + saldo), cupos y máximo 3 por club. La UI envía un snapshot serializable al Web Worker same-origin para no bloquear el hilo principal, revalida los 15 IDs, coste, cupos, clubes y score contra el estado vigente, y usa el optimizador síncrono como fallback seguro si `Worker` no existe, falla, expira o devuelve datos inválidos. La Wildcard 1 solo se aplica entre los cierres de GW1 y GW19, y la Wildcard 2 entre los cierres de GW19 y GW38; cada una caduca al final de su ventana. Aplicarla reemplaza atómicamente los 15 jugadores, actualiza saldo y precios de compra, reinicia las transferencias libres y consume el comodín sin penalización de −4.
 - **Planner encadenado 6GW:** `FanTeamPlanner` parte de la plantilla y las transferencias libres actuales, aplica virtualmente cada recomendación antes de calcular la siguiente jornada, recalcula XI/capitán/vice, acumula las FT y compara la proyección total contra conservar el equipo. Solo permite aplicar el primer movimiento; el resto se recalcula con datos nuevos.
 - **Mejor XI:** 8 formaciones evaluadas; capitán y vice por valor esperado, combinando la proyección base con probabilidades `h2h` y `totals` normalizadas de varias casas. La frescura se mide con `last_update` de cada mercado; si no hay mercados con menos de 6 horas, utiliza automáticamente la proyección base.
 
@@ -119,20 +123,22 @@ En **Mercado y precios** puedes descargar una plantilla JSON con los 580 jugador
 ## Desarrollo y deploy
 
 - **App:** edita `index.html` y haz push a `main` — GitHub Pages publica automáticamente. Sin build.
-- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez. `npm test` corre las regresiones del dominio en JSDOM y el smoke del Worker; `npm run test:e2e:install` instala Chromium y `npm run test:e2e` ejecuta el smoke de navegador real. `npm run test:all` combina ambas suites. También puedes usar `npm run test:frontend` o `npm run test:worker` por separado.
-- **CI:** GitHub Actions ejecuta `npm ci`, las regresiones y el smoke Chromium en cada pull request y push a `main`; conserva trazas, capturas y video cuando falla el navegador.
+- **Pruebas:** requiere Node `^20.19`, `^22.13` o `>=24`. Ejecuta `npm install` una vez. `npm test` corre las regresiones del dominio en JSDOM y el smoke del Worker; `npm run test:e2e:install` instala Chromium, `npm run test:e2e` ejecuta el smoke local y `npm run test:production` valida la aplicación realmente desplegada. `npm run test:all` combina las suites locales. También puedes usar `npm run test:frontend` o `npm run test:worker` por separado.
+- **CI:** GitHub Actions ejecuta `npm ci`, las regresiones y el smoke Chromium en cada pull request y push a `main`; conserva trazas, capturas y video cuando falla el navegador. El workflow de producción se dispara con cambios del frontend/Worker y diariamente: verifica contrato/CORS del Worker y prueba GitHub Pages con `FanTeamDeadlines` y el Web Worker real.
 - **Worker:** ver `worker/README.md` (deploy con `wrangler deploy`, secrets con `wrangler secret put`).
 - Prueba local: abre `index.html` en el navegador; el “modo seguro” funciona sin red.
 
 ## Estado y pendientes
 
 - ✅ App nueva publicada con módulo de optimización completo.
-- ✅ Código del Worker v2.2.0 respaldado en `worker/src/index.js`, con caché v9 adaptativa, lesiones con caducidad, referencia pública FPL y suite smoke (`node worker/test/smoke.mjs`).
+- ✅ Código del Worker v2.3.1 respaldado en `worker/src/index.js`, con caché de payload v11, Durable Object para coordinar API-Football, snapshot stale sin alineaciones vencidas, backoff para 429, lesiones con caducidad, referencia pública FPL y suite smoke (`node worker/test/smoke.mjs`).
 - ✅ `players[]`: combina referencias FPL de rendimiento/xG/CS/transferencias con lesiones y alineaciones API-Football; cada registro se empareja de forma segura sin mezclar los minutos históricos con la estimación de la próxima aparición.
-- ✅ Worker v2.2.0 preparado para Cloudflare; The Odds API alimenta mercados y FPL alimenta la analítica de Mercado.
+- ✅ Worker v2.3.1 preparado para Cloudflare; The Odds API alimenta mercados, FPL alimenta la analítica de Mercado y API-Football conserva datos válidos durante límites transitorios de cuota.
 - ✅ Capitán y vice por valor esperado con momios normalizados y fallback automático al modelo base.
 - ✅ Planner encadenado de 6 jornadas con acumulación de transferencias, XI/capitanía recalculados y comparación contra no hacer movimientos.
 - ✅ Seguimiento de valor con precios de compra, historial individual de hasta 64 cortes importados, ranking de subidas/bajadas, plusvalía/pérdida, saldo, poder de compra y respaldos compatibles.
 - ✅ Puntos reales por jornada con motor de scoring FanTeam v1, pronósticos congelados, MAE/RMSE/sesgo, acierto de capitán y retorno de transferencias a 3GW.
-- ✅ Suite de regresión frontend con 16 escenarios sobre render, scoring, migraciones v1-v5, precios, respaldo, recomendador, planner, aplicación/validación de decisiones, mejor XI y optimizador de Wildcard; `npm test` también ejecuta el smoke del Worker.
-- ✅ Smoke E2E en Chromium para carga HTTP y `file://`, navegación, XI/banca, planner, mercado y exportación/importación de respaldos, automatizado en GitHub Actions.
+- ✅ El optimizador de Wildcard corre en un Web Worker real bajo HTTP, valida nuevamente el resultado en el dominio principal y conserva fallback síncrono para `file://`, navegadores sin Worker, errores, timeout o respuestas inválidas.
+- ✅ Los cierres se derivan del kickoff oficial más temprano menos 90 minutos, con fuente visible en la UI, fallback incorporado por jornada y avance monotónico de GW.
+- ✅ Suite de regresión frontend con escenarios sobre render, scoring, migraciones v1-v5, precios, respaldo, recomendador, planner, aplicación/validación de decisiones, mejor XI y optimizador de Wildcard; incluye integración focalizada para Worker válido/ausente/inválido y deadlines derivados/fallback. `npm test` también ejecuta el smoke del Worker.
+- ✅ Smoke E2E en Chromium para carga HTTP y `file://`, navegación, XI/banca, planner, mercado, ejecución real del Web Worker de Wildcard y exportación/importación de respaldos. Un smoke diario adicional valida contrato/CORS del Worker y la app desplegada en GitHub Pages.
