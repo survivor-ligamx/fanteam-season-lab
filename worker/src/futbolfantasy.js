@@ -114,7 +114,8 @@ function parseProbableLineups(html, sourceUrl) {
 }
 
 export function parseFutbolFantasyPage(html, sourceUrl, kind, now = new Date()) {
-  if (typeof html !== "string" || new TextEncoder().encode(html).byteLength > MAX_HTML_BYTES) {
+  const byteLength = typeof html === "string" ? new TextEncoder().encode(html).byteLength : 0;
+  if (typeof html !== "string" || !html.trim() || byteLength > MAX_HTML_BYTES) {
     return { ok: false, error: "HTML vacío o demasiado grande", news: [], events: [], probableLineups: [] };
   }
   const clean = html.replace(/<!--[\s\S]*?-->/g, " ");
