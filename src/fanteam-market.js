@@ -137,20 +137,20 @@
       || minutes < 900
       || pointsPerGame == null
       || xg90 == null
-      || pointsPerGame > 3.2
+      || pointsPerGame > 3.3
       || xg90 > .10
     ) return empty;
     const reliability = clamp((minutes - 450) / 1350, 0, 1);
-    const scoringGap = clamp((3.2 - pointsPerGame) / 1.2, 0, 1);
+    const scoringGap = clamp((3.3 - pointsPerGame) / 1.2, 0, 1);
     const attackingGap = clamp((.10 - xg90) / .10, 0, 1);
     const strength = reliability * (.5 + .25 * scoringGap + .25 * attackingGap);
     const penalty = rounded(1.25 * strength, 3) || 0;
     if (penalty < .2) return empty;
     return {
       isRisk: true,
-      kind: "low-ceiling-midfielder",
-      label: "MID defensivo · bajo techo",
-      detail: `Perfil compatible con medio defensivo barato: ${price.toFixed(1)}M, ${pointsPerGame.toFixed(1)} pts/partido y ${xg90.toFixed(2)} xG/90 en ${Math.round(minutes)} minutos. La titularidad por sí sola no compensa la baja producción ofensiva.`,
+      kind: "budget-enabler-midfielder",
+      label: "MID defensivo · habilitador",
+      detail: `Medio barato de baja producción ofensiva: ${price.toFixed(1)}M, ${pointsPerGame.toFixed(1)} pts/partido y ${xg90.toFixed(2)} xG/90 en ${Math.round(minutes)} minutos. No es un titular preferente ni un diferencial; puede entrar en banca si el ahorro mejora claramente el resto de la plantilla.`,
       penalty,
       strength: rounded(strength, 3),
       sampleMinutes: minutes,
@@ -576,7 +576,7 @@
           if (availability(player) < 1 || metric.h3 <= 0.4) {
             tag = { t: "EVITAR", c: "tagEvitar" };
           } else if (metric.lowCeilingMidfielder.isRisk) {
-            tag = { t: "MID BAJO TECHO", c: "tagLowCeiling" };
+            tag = { t: "HABILITADOR", c: "tagLowCeiling" };
           } else if (metric.positionalEdge.isEdge && metric.isDifferential) {
             tag = { t: "POS.+DIF", c: "tagOop" };
           } else if (metric.positionalEdge.isEdge) {

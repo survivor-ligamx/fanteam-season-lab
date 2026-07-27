@@ -1234,9 +1234,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   background: rgba(32, 217, 161, 0.13);
 }
 .tagLowCeiling {
-  border: 1px solid rgba(255, 102, 128, 0.52);
-  color: #ff9aac;
-  background: rgba(255, 102, 128, 0.14);
+  border: 1px solid rgba(255, 189, 89, 0.52);
+  color: #ffd58d;
+  background: rgba(255, 189, 89, 0.14);
 }
 .playerProfileTags {
   display: flex;

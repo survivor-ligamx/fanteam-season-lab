@@ -30,7 +30,7 @@
       const free = week.gw === 1 ? "∞" : week.freeBefore;
       const cost = week.gw === 1 ? "ajuste ilimitado" : `${week.used} FT`;
       const movement = recommendation.type === "transfer"
-        ? `+${recommendation.gain.toFixed(2)} pts ponderados · ${cost}`
+        ? `+${recommendation.gain.toFixed(2)} valor estratégico${Number.isFinite(recommendation.rawGain) ? ` · proy. ${recommendation.rawGain >= 0 ? "+" : ""}${recommendation.rawGain.toFixed(2)} pts` : ""} · ${cost}`
         : "Acumular FT";
       const viceIsDifferential = week.xi.differential
         && week.xi.differentialMetric
