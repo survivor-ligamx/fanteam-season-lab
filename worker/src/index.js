@@ -790,21 +790,34 @@ function summarizeFutbolFantasyHeadline(headline) {
   const categories = [
     ["Lesiones", ["lesion", "baja", "molest", "operacion", "recupera", "duda"]],
     ["Sanciones", ["sancion", "suspend", "tarjeta", "expulsion"]],
+    ["Selecciones", ["seleccion", "internacional", "fecha fifa"]],
     ["Alineaciones", ["alineacion", "once", "titular", "suplente", "convocatoria"]],
-    ["Mercado", ["fichaje", "traspaso", "cesion", "renov", "acuerdo", "oficial"]],
     ["Entrenamiento", ["entren", "sesion", "grupo"]],
+    ["Mercado oficial", ["hace oficial el fichaje", "fichaje oficial", "nuevo jugador", "anuncia la contratacion", "traspaso confirmado", "firma por", "se incorpora"]],
+    ["Rumores", ["fichaje", "traspaso", "cesion", "renov", "acuerdo", "oferta", "interes", "negocia", "mercado", "podria"]],
     ["Declaraciones", ["rueda de prensa", "declara", "confirma"]],
     ["Partidos", ["partido", "victoria", "derrota", "empate"]]
   ];
-  const category = categories.find(([, keywords]) => (
-    keywords.some((keyword) => normalized.includes(keyword))
-  ))?.[0] || "Actualidad";
+  const marketContext = [
+    "fichaje", "traspaso", "cesion", "renov", "acuerdo", "oferta",
+    "interes", "negocia", "mercado", "nuevo jugador", "firma"
+  ].some((keyword) => normalized.includes(keyword));
+  const uncertainMarket = [
+    "podria", "oferta", "interes", "negocia", "rumor", "valora", "estudia"
+  ].some((keyword) => normalized.includes(keyword));
+  const category = marketContext && uncertainMarket
+    ? "Rumores"
+    : categories.find(([, keywords]) => (
+      keywords.some((keyword) => normalized.includes(keyword))
+    ))?.[0] || "Actualidad";
   const subjects = clubs.length ? ` relacionada con ${clubs.join(" y ")}` : " de la Premier League";
   const lead = {
     Lesiones: "Actualización informativa sobre disponibilidad o lesión",
     Sanciones: "Actualización informativa sobre una posible sanción",
     Alineaciones: "Actualización editorial sobre convocatoria o alineación",
-    Mercado: "Actualización informativa del mercado de fichajes",
+    Selecciones: "Actualización informativa sobre convocatoria o actividad internacional",
+    "Mercado oficial": "Actualización informativa sobre un movimiento oficial de mercado",
+    Rumores: "Actualización editorial sobre un rumor o negociación de mercado",
     Entrenamiento: "Novedad informativa procedente de un entrenamiento",
     Declaraciones: "Novedad informativa procedente de declaraciones",
     Partidos: "Actualización informativa relacionada con un partido",
@@ -815,7 +828,7 @@ function summarizeFutbolFantasyHeadline(headline) {
 
 
 function parseFutbolFantasyNews(html) {
-  return blocksByClasses(html, "div", ["noticia"], 20)
+  return blocksByClasses(html, "div", ["noticia"], Number.POSITIVE_INFINITY)
     .map((block) => {
       const link = classElements(block.body, "link", 1)[0];
       const sourceUrl = link ? futbolFantasyUrl(htmlAttribute(link.openingTag, "href")) : null;
@@ -834,14 +847,19 @@ function parseFutbolFantasyAvailability(html, kind, sourceUrl) {
   const sectionClass = kind === "injuries" ? "lesionados" : "sancionados";
   const itemClass = kind === "injuries" ? "lesionado" : "sancionado";
   const records = [];
-  for (const section of blocksByClasses(html, "section", ["mod", sectionClass], 30)) {
+  for (const section of blocksByClasses(
+    html,
+    "section",
+    ["mod", sectionClass],
+    Number.POSITIVE_INFINITY
+  )) {
     const club = futbolFantasyClub(firstClassText(section.body, "title", 100));
     if (!club) continue;
     for (const item of blocksByClasses(
       section.body,
       "div",
       ["elemento", itemClass],
-      Math.max(1, 80 - records.length)
+      Number.POSITIVE_INFINITY
     )) {
       const player = firstClassText(item.body, "jugador", 80);
       if (!player) continue;
@@ -870,14 +888,19 @@ function parseFutbolFantasyAvailability(html, kind, sourceUrl) {
 function parseFutbolFantasyLineups(html) {
   const gameweek = cleanHTMLText(html, 10000).match(/\bJornada\s+(\d{1,2})\b/i)?.[1] || "";
   const lineups = new Map();
-  for (const section of blocksByClasses(html, "section", ["alineacion_wrapper"], 30)) {
+  for (const section of blocksByClasses(
+    html,
+    "section",
+    ["alineacion_wrapper"],
+    Number.POSITIVE_INFINITY
+  )) {
     const club = futbolFantasyClub(section.body);
     if (!club) continue;
     const teamLink = classElements(section.body, "equipo", 1)[0];
     const sourceUrl = teamLink
       ? futbolFantasyUrl(htmlAttribute(teamLink.openingTag, "href"))
       : FUTBOLFANTASY_URLS.lineups;
-    const players = classElements(section.body, "jugador", 15)
+    const players = classElements(section.body, "jugador", Number.POSITIVE_INFINITY)
       .map((element) => element.text)
       .filter(Boolean)
       .slice(0, 15);
