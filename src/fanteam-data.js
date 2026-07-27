@@ -293,6 +293,104 @@
       return MAX_GAMEWEEK;
     }
 
+    function prepareFutbolFantasy(raw) {
+      const sourceUrl = "https://www.futbolfantasy.com/premier-league/home";
+      const empty = {
+        mode: "informational",
+        enabled: false,
+        available: false,
+        observedAt: null,
+        stale: false,
+        sourceUrl,
+        news: [],
+        injuries: [],
+        suspensions: [],
+        probableLineups: [],
+        error: null,
+      };
+      if (!raw || typeof raw !== "object") return empty;
+
+      const text = (value, maximum) => (
+        typeof value === "string"
+          ? value.replace(/\s+/g, " ").trim().slice(0, maximum)
+          : ""
+      );
+      const url = (value, fallback = null) => {
+        try {
+          const parsed = new URL(value);
+          const trusted = parsed.hostname === "futbolfantasy.com"
+            || parsed.hostname.endsWith(".futbolfantasy.com");
+          return parsed.protocol === "https:" && trusted
+            ? parsed.href.slice(0, 500)
+            : fallback;
+        } catch {
+          return fallback;
+        }
+      };
+      const date = (value) => {
+        const result = text(value, 40);
+        return result && Number.isFinite(new Date(result).getTime()) ? result : null;
+      };
+      const list = (value, maximum, prepare) => (
+        Array.isArray(value)
+          ? value.slice(0, maximum).map(prepare).filter(Boolean)
+          : []
+      );
+      const clubs = (value) => list(value, 4, (club) => text(club, 48) || null);
+      const availability = (value) => list(value, 80, (item) => {
+        if (!item || typeof item !== "object") return null;
+        const player = text(item.player, 80);
+        const club = text(item.club, 48);
+        if (!player || !club) return null;
+        return {
+          club,
+          player,
+          issue: text(item.issue, 120),
+          status: text(item.status, 120),
+          since: text(item.since, 80),
+          sourceUrl: url(item.sourceUrl, url(raw.sourceUrl, sourceUrl)),
+        };
+      });
+
+      return {
+        mode: "informational",
+        enabled: raw.enabled === true,
+        available: raw.available === true,
+        observedAt: date(raw.observedAt),
+        stale: raw.stale === true,
+        sourceUrl: url(raw.sourceUrl, sourceUrl),
+        news: list(raw.news, 20, (item) => {
+          if (!item || typeof item !== "object") return null;
+          const summary = text(item.summary, 220);
+          const source = url(item.sourceUrl);
+          if (!summary || !source) return null;
+          return {
+            summary,
+            category: text(item.category, 40) || "Actualidad",
+            clubs: clubs(item.clubs),
+            publishedAt: date(item.publishedAt),
+            publishedLabel: text(item.publishedLabel, 60),
+            sourceUrl: source,
+          };
+        }),
+        injuries: availability(raw.injuries),
+        suspensions: availability(raw.suspensions),
+        probableLineups: list(raw.probableLineups, 30, (item) => {
+          if (!item || typeof item !== "object") return null;
+          const club = text(item.club, 48);
+          const source = url(item.sourceUrl);
+          if (!club || !source) return null;
+          return {
+            club,
+            gameweek: text(item.gameweek, 32),
+            players: list(item.players, 15, (player) => text(player, 80) || null),
+            sourceUrl: source,
+          };
+        }),
+        error: text(raw.error, 180) || null,
+      };
+    }
+
     function preparePayload(payload, currentGameweek) {
       const source = payload && typeof payload === "object" ? payload : {};
       const playerUpdates = preparePlayerUpdates(source.players);
@@ -310,6 +408,7 @@
         odds: Array.isArray(source.odds) ? source.odds : [],
         oddsUpdatedAt: source.updatedAt || null,
         news: Array.isArray(source.news) ? source.news : [],
+        futbolFantasy: prepareFutbolFantasy(source.futbolFantasy),
         sources: source.sources || null,
         sourceMeta: source.sourceMeta || null,
         errors: source.errors || null,

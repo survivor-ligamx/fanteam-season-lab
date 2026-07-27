@@ -15,6 +15,12 @@ compatibility_date = "2026-07-01"
 #   FOOTBALL_DATA_KEY  → Football-Data.org (calendario/resultados PL)
 #   ODDS_API_KEY       → The Odds API (momios)
 #   GNEWS_API_KEY      → GNews (noticias)
+#
+# Integración editorial opcional. Mantener desactivada hasta contar con permiso
+# de extracción/redistribución de FutbolFantasy. Al activarla, solo publica
+# hechos mínimos, paráfrasis por plantillas y enlaces; nunca imágenes ni artículos.
+[vars]
+FUTBOLFANTASY_ENABLED = "false"
 
 
 [durable_objects]

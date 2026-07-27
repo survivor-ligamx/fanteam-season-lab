@@ -149,7 +149,7 @@ const check = (name, cond) => { console.log((cond ? " ✓ " : " ✗ ") + name); 
 const API_CACHE_KEY = "https://w.dev/__fanteam_api_football_v1/state";
 const clearPayloadCache = () => {
   for (const key of [...cacheStore.keys()]) {
-    if (key.includes("/__fanteam_cache_v11")) cacheStore.delete(key);
+    if (key.includes("/__fanteam_cache_v12")) cacheStore.delete(key);
   }
 };
 const readCachedJSON = async (key) => {
@@ -193,7 +193,7 @@ check("cache.put guarda snapshot API-Football y payload", ctx1.waited.length ===
 const res2 = await worker.fetch(new Request("https://w.dev/latest"), env, mkCtx());
 const d2 = await res2.json();
 console.log("\n— Escenario 2: hit de caché —");
-check("misma respuesta degradada cacheada (clave v11 separada)", d2.updatedAt === d1.updatedAt && cacheStore.has("https://w.dev/__fanteam_cache_v11/latest?cors=server&format=compact&quality=degraded"));
+check("misma respuesta degradada cacheada (clave v12 separada)", d2.updatedAt === d1.updatedAt && cacheStore.has("https://w.dev/__fanteam_cache_v12/latest?cors=server&format=compact&quality=degraded"));
 
 // ---------- Escenario 3: semana sin partidos ----------
 cacheStore.clear();
