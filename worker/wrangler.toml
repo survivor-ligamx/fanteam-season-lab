@@ -2,7 +2,7 @@
 # Respaldo del Worker desplegado. Deploy: `npx wrangler deploy` desde esta carpeta.
 
 name = "fanteam-data"
-main = "src/index.js"
+main = "src/entry-futbolfantasy.js"
 compatibility_date = "2026-07-01"
 
 # NOTA: este Worker NO usa cron. La frescura la gobierna el caché de borde
@@ -14,7 +14,7 @@ compatibility_date = "2026-07-01"
 #   API_FOOTBALL_KEY   → API-Football (lesiones, fixtures, alineaciones)
 #   FOOTBALL_DATA_KEY  → Football-Data.org (calendario/resultados PL)
 #   ODDS_API_KEY       → The Odds API (momios)
-#   GNEWS_API_KEY      → GNews (noticias)
+#   GNEWS_API_KEY       → GNews (noticias)
 
 
 [durable_objects]

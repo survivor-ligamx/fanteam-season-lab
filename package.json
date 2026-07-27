@@ -9,7 +9,7 @@
   "scripts": {
     "test": "npm run test:frontend && npm run test:worker",
     "test:frontend": "node --test test/frontend/*.test.mjs",
-    "test:worker": "node worker/test/smoke.mjs",
+    "test:worker": "node worker/test/smoke.mjs && node --test worker/test/futbolfantasy.test.mjs worker/test/futbolfantasy-entry.test.mjs",
     "test:e2e": "playwright test",
     "test:production": "playwright test --config=playwright.production.config.mjs",
     "test:e2e:install": "playwright install chromium",
