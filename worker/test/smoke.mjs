@@ -193,7 +193,7 @@ check("cache.put guarda snapshot API-Football y payload", ctx1.waited.length ===
 const res2 = await worker.fetch(new Request("https://w.dev/latest"), env, mkCtx());
 const d2 = await res2.json();
 console.log("\n— Escenario 2: hit de caché —");
-check("misma respuesta degradada cacheada (clave v12 separada)", d2.updatedAt === d1.updatedAt && cacheStore.has("https://w.dev/__fanteam_cache_v12/latest?cors=server&format=compact&quality=degraded"));
+check("misma respuesta degradada cacheada (clave v12 separada por gate FF)", d2.updatedAt === d1.updatedAt && cacheStore.has("https://w.dev/__fanteam_cache_v12/latest?cors=server&format=compact&futbolFantasy=disabled&quality=degraded"));
 
 // ---------- Escenario 3: semana sin partidos ----------
 cacheStore.clear();

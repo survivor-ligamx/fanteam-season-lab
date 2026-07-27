@@ -936,7 +936,8 @@ async function getFutbolFantasy(env, cache = caches.default, cacheOrigin = "http
 
   const headers = {
     "Accept": "text/html,application/xhtml+xml",
-    "User-Agent": "FanTeamSeasonLab/1.0 (informational integration; contact via GitHub)"
+    "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
+    "User-Agent": "Mozilla/5.0 (compatible; FanTeamData/2.3; +https://survivor-ligamx.github.io/fanteam-season-lab/)"
   };
   const labels = Object.keys(FUTBOLFANTASY_URLS);
   const responses = {};
@@ -949,6 +950,7 @@ async function getFutbolFantasy(env, cache = caches.default, cacheOrigin = "http
     }
     responses[label] = await safeTextRequest(FUTBOLFANTASY_URLS[label], {
       headers,
+      redirect: "follow",
       timeoutMs: Math.min(3000, remaining)
     });
     if (responses[label].status === 403 || responses[label].status === 429) break;
@@ -1458,8 +1460,10 @@ export default {
     const cache = caches.default;
     const originBucket = allowedOrigin(request, env) || "server";
     const pretty = url.searchParams.get("pretty") === "1" ? "pretty" : "compact";
+    const futbolFantasyCacheMode = futbolFantasyEnabled(env) ? "enabled" : "disabled";
     const cacheBase = `${url.origin}/__fanteam_cache_v12${url.pathname}`
-      + `?cors=${encodeURIComponent(originBucket)}&format=${pretty}`;
+      + `?cors=${encodeURIComponent(originBucket)}&format=${pretty}`
+      + `&futbolFantasy=${futbolFantasyCacheMode}`;
     const healthyKey = new Request(`${cacheBase}&quality=healthy`, { method: "GET" });
     const degradedKey = new Request(`${cacheBase}&quality=degraded`, { method: "GET" });
 
