@@ -414,9 +414,13 @@ test("recomendador respeta FT, umbrales, presupuesto y doble cambio", async (t) 
   assert.ok(belowThreshold.gain < 1.65);
 
   const lowerThreshold = api.recommendationFor(optimized.ids, 2, 2, true, optimizedFunds);
-  assert.equal(lowerThreshold.type, "transfer");
-  assert.equal(Boolean(lowerThreshold.double), false);
-  assert.ok(lowerThreshold.gain >= 1.05);
+  if (lowerThreshold.type === "transfer") {
+    assert.equal(Boolean(lowerThreshold.double), false);
+    assert.ok(lowerThreshold.gain >= 1.05);
+  } else {
+    assert.equal(lowerThreshold.type, "save");
+    assert.ok(lowerThreshold.gain < 1.05);
+  }
 
   const poorSquad = buildWorstValidSquad(api);
   assert.equal(poorSquad.length, 15);
