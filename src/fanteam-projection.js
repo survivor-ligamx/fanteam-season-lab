@@ -61,6 +61,7 @@
       getOdds,
       differentialEligible = () => true,
       lineupPenalty = () => 0,
+      projectionFactor = () => 1,
       maxGameweek = MAX_GAMEWEEK,
     } = options || {};
     if (typeof fixture !== "function") throw new Error("fixture es obligatorio");
@@ -73,6 +74,10 @@
       throw new Error("lineupPenalty debe ser una función");
     }
 
+    if (typeof projectionFactor !== "function") {
+      throw new Error("projectionFactor debe ser una función");
+    }
+
     function projection(player, gameweek) {
       const scheduled = fixture(player, gameweek);
       if (!scheduled) return 0;
@@ -80,9 +85,14 @@
       const slope = { GK: .45, DEF: .65, MID: .8, FWD: .85 }[player.pos];
       const multiplier = clamp(1 + scheduled.adv / 250, .78, 1.22);
       const role = .58 + .42 * (player.confidence / 100);
+      const editorialFactor = clamp(Number(projectionFactor(player, gameweek)) || 1, .55, 1.04);
       return Math.max(
         .1,
-        (base + slope * (player.price - 4)) * multiplier * role * availability(player),
+        (base + slope * (player.price - 4))
+          * multiplier
+          * role
+          * availability(player)
+          * editorialFactor,
       );
     }
 
