@@ -7,6 +7,7 @@
   const MAX_MARKET_SNAPSHOTS = 64;
   const MAX_AUTO_DRAFT_HISTORY = 24;
   const MAX_SHADOW_HISTORY = 64;
+  const MAX_FANTASY_FINALS = 38;
 
   function create(options) {
     const {
@@ -108,6 +109,7 @@
         squad: initial.slice(),
         history: [],
         decision: null,
+        fantasyFinals: [],
         wc1: false,
         wc2: false,
       };
@@ -483,6 +485,149 @@
         history: shadowHistory.slice(-MAX_SHADOW_HISTORY),
       };
 
+      const fantasyFinalByGameweek = new Map();
+      for (const raw of Array.isArray(source.fantasyFinals) ? source.fantasyFinals : []) {
+        if (!raw || typeof raw !== "object") continue;
+        const gameweek = Math.round(Number(raw.gw));
+        const generatedAt = autoDraftDate(raw.generatedAt);
+        const refreshedAt = autoDraftDate(raw.refreshedAt) || generatedAt;
+        const deadline = autoDraftDate(raw.deadline);
+        const generatedTime = new Date(generatedAt || "").getTime();
+        const refreshedTime = new Date(refreshedAt || "").getTime();
+        const deadlineTime = new Date(deadline || "").getTime();
+        const finalWindowOpens = deadlineTime - 24 * 60 * 60 * 1000;
+        const squadIds = Array.isArray(raw.squadIds)
+          ? raw.squadIds.map(Number).filter(knownPlayer)
+          : [];
+        const xiIds = Array.isArray(raw.xiIds)
+          ? raw.xiIds.map(Number).filter(knownPlayer)
+          : [];
+        const benchIds = Array.isArray(raw.benchIds)
+          ? raw.benchIds.map(Number).filter(knownPlayer)
+          : [];
+        const captainId = knownPlayer(raw.captainId) ? Number(raw.captainId) : null;
+        const viceId = knownPlayer(raw.viceId) ? Number(raw.viceId) : null;
+        if (
+          gameweek < 1
+          || gameweek > MAX_GAMEWEEK
+          || !generatedAt
+          || !deadline
+          || generatedTime < finalWindowOpens
+          || generatedTime >= deadlineTime
+          || refreshedTime < generatedTime
+          || refreshedTime >= deadlineTime
+          || !validAuditSquad(squadIds)
+          || xiIds.length !== 11
+          || new Set(xiIds).size !== 11
+          || benchIds.length !== 4
+          || new Set(benchIds).size !== 4
+          || [...xiIds, ...benchIds].some((id) => !squadIds.includes(id))
+          || new Set([...xiIds, ...benchIds]).size !== 15
+          || !xiIds.includes(captainId)
+          || !xiIds.includes(viceId)
+          || captainId === viceId
+        ) continue;
+        const sourceRecommendation = raw.recommendation && typeof raw.recommendation === "object"
+          ? raw.recommendation
+          : {};
+        const recommendationType = sourceRecommendation.type === "transfer" ? "transfer" : "save";
+        const recommendation = {
+          type: recommendationType,
+          outId: recommendationType === "transfer" && knownPlayer(sourceRecommendation.outId)
+            ? Number(sourceRecommendation.outId) : null,
+          inId: recommendationType === "transfer" && knownPlayer(sourceRecommendation.inId)
+            ? Number(sourceRecommendation.inId) : null,
+          out2Id: recommendationType === "transfer" && knownPlayer(sourceRecommendation.out2Id)
+            ? Number(sourceRecommendation.out2Id) : null,
+          in2Id: recommendationType === "transfer" && knownPlayer(sourceRecommendation.in2Id)
+            ? Number(sourceRecommendation.in2Id) : null,
+          gain: Number.isFinite(Number(sourceRecommendation.gain))
+            ? +Number(sourceRecommendation.gain).toFixed(3) : 0,
+          reason: typeof sourceRecommendation.reason === "string"
+            ? sourceRecommendation.reason.slice(0, 240) : "",
+        };
+        if (recommendationType === "transfer") {
+          const hasSecondary = Boolean(recommendation.out2Id || recommendation.in2Id);
+          const ids = [recommendation.outId, recommendation.inId];
+          if (hasSecondary) ids.push(recommendation.out2Id, recommendation.in2Id);
+          const primaryValid = recommendation.outId
+            && recommendation.inId
+            && !squadIds.includes(recommendation.outId)
+            && squadIds.includes(recommendation.inId)
+            && playerByNumericId.get(recommendation.outId)?.pos
+              === playerByNumericId.get(recommendation.inId)?.pos;
+          const secondaryValid = !hasSecondary || (
+            recommendation.out2Id
+            && recommendation.in2Id
+            && !squadIds.includes(recommendation.out2Id)
+            && squadIds.includes(recommendation.in2Id)
+            && playerByNumericId.get(recommendation.out2Id)?.pos
+              === playerByNumericId.get(recommendation.in2Id)?.pos
+          );
+          const before = squadIds.map((id) => (
+            id === recommendation.inId
+              ? recommendation.outId
+              : hasSecondary && id === recommendation.in2Id
+                ? recommendation.out2Id
+                : id
+          ));
+          if (
+            !primaryValid
+            || !secondaryValid
+            || new Set(ids).size !== ids.length
+            || !validAuditSquad(before)
+          ) continue;
+        }
+        const signals = [];
+        for (const signal of Array.isArray(raw.signals) ? raw.signals : []) {
+          if (!signal || !knownPlayer(signal.playerId)) continue;
+          if (!["probable", "editorialInjury", "editorialSuspension"].includes(signal.type)) continue;
+          const observedAt = autoDraftDate(signal.observedAt);
+          signals.push({
+            playerId: Number(signal.playerId),
+            type: signal.type,
+            label: typeof signal.label === "string" ? signal.label.slice(0, 64) : "",
+            factor: Number.isFinite(Number(signal.factor))
+              ? Math.max(.55, Math.min(1.04, Number(signal.factor))) : 1,
+            primaryOverride: signal.primaryOverride === true,
+            observedAt,
+            sourceUrl: typeof signal.sourceUrl === "string"
+              && /^https:\/\//.test(signal.sourceUrl) ? signal.sourceUrl.slice(0, 500) : null,
+          });
+          if (signals.length >= 30) break;
+        }
+        const coverageRaw = raw.coverage && typeof raw.coverage === "object" ? raw.coverage : {};
+        fantasyFinalByGameweek.set(gameweek, {
+          gw: gameweek,
+          generatedAt,
+          refreshedAt,
+          dataUpdatedAt: autoDraftDate(raw.dataUpdatedAt),
+          deadline,
+          squadIds,
+          xiIds,
+          benchIds,
+          captainId,
+          viceId,
+          formation: typeof raw.formation === "string" && /^\d-\d-\d$/.test(raw.formation)
+            ? raw.formation : "",
+          projectedTotal: Number.isFinite(Number(raw.projectedTotal))
+            ? +Number(raw.projectedTotal).toFixed(3) : 0,
+          recommendation,
+          signals,
+          coverage: {
+            apiFootball: coverageRaw.apiFootball === true,
+            futbolFantasy: coverageRaw.futbolFantasy === true,
+            futbolFantasyStale: coverageRaw.futbolFantasyStale === true,
+            probableNames: Math.max(0, Math.min(450, Math.round(Number(coverageRaw.probableNames) || 0))),
+            matchedSignals: signals.length,
+          },
+          fingerprint: typeof raw.fingerprint === "string" ? raw.fingerprint.slice(0, 64) : "",
+        });
+      }
+      state.fantasyFinals = [...fantasyFinalByGameweek.values()]
+        .sort((first, second) => first.gw - second.gw)
+        .slice(-MAX_FANTASY_FINALS);
+
       const cleanActuals = {};
       if (source.actualsByGW && typeof source.actualsByGW === "object") {
         for (const [rawGameweek, bucket] of Object.entries(source.actualsByGW)) {
@@ -609,6 +754,7 @@
     MAX_GAMEWEEK,
     MAX_FREE_TRANSFERS,
     MAX_MARKET_SNAPSHOTS,
+    MAX_FANTASY_FINALS,
     create,
   });
 })(globalThis);

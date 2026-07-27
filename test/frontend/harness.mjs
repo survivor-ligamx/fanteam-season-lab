@@ -10,6 +10,7 @@ const HISTORY_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-history.js"
 const FINANCE_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-finance.js", import.meta.url));
 const STATE_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-state.js", import.meta.url));
 const DATA_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-data.js", import.meta.url));
+const EDITORIAL_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-editorial.js", import.meta.url));
 const ODDS_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-odds.js", import.meta.url));
 const PROJECTION_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-projection.js", import.meta.url));
 const MARKET_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-market.js", import.meta.url));
@@ -23,7 +24,7 @@ const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", i
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
 export async function createFrontendHarness() {
-  const [html, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, stateModuleSource, dataModuleSource, oddsModuleSource, projectionModuleSource, marketModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, deadlinesModuleSource, backupModuleSource] = await Promise.all([
+  const [html, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, stateModuleSource, dataModuleSource, editorialModuleSource, oddsModuleSource, projectionModuleSource, marketModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, deadlinesModuleSource, backupModuleSource] = await Promise.all([
     readFile(INDEX_PATH, "utf8"),
     readFile(STORAGE_MODULE_PATH, "utf8"),
     readFile(SCORING_MODULE_PATH, "utf8"),
@@ -32,6 +33,7 @@ export async function createFrontendHarness() {
     readFile(FINANCE_MODULE_PATH, "utf8"),
     readFile(STATE_MODULE_PATH, "utf8"),
     readFile(DATA_MODULE_PATH, "utf8"),
+    readFile(EDITORIAL_MODULE_PATH, "utf8"),
     readFile(ODDS_MODULE_PATH, "utf8"),
     readFile(PROJECTION_MODULE_PATH, "utf8"),
     readFile(MARKET_MODULE_PATH, "utf8"),
@@ -68,6 +70,11 @@ export async function createFrontendHarness() {
       dataPreparePlayerUpdates: DATA_MODEL.preparePlayerUpdates,
       dataPrepareResults: DATA_MODEL.prepareResults,
       dataDetectGameweek: DATA_MODEL.detectGameweek,
+      editorialEvaluate: FanTeamEditorial.evaluate,
+      editorialFinalWindow: FanTeamEditorial.finalWindow,
+      editorialProjectionFactor,
+      refreshFantasyFinal,
+      renderFantasyFinal,
       oddsMarketTime: ODDS_ENGINE.marketTime,
       oddsIsMarketFresh: ODDS_ENGINE.isMarketFresh,
       oddsHasFreshData: ODDS_ENGINE.hasFreshData,
@@ -139,6 +146,7 @@ export async function createFrontendHarness() {
   dom.window.eval(financeModuleSource);
   dom.window.eval(stateModuleSource);
   dom.window.eval(dataModuleSource);
+  dom.window.eval(editorialModuleSource);
   dom.window.eval(oddsModuleSource);
   dom.window.eval(projectionModuleSource);
   dom.window.eval(marketModuleSource);

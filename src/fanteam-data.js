@@ -60,6 +60,38 @@
       return matches.length === 1 ? matches[0] : null;
     }
 
+    function resolvePlayerIdentity(nameValue, clubValue, rejectUnknownClub = false) {
+      const normalizedName = nameValue ? normalizeName(nameValue) : "";
+      if (!normalizedName) return null;
+      const clubProvided = clubValue != null && String(clubValue).trim() !== "";
+      const club = clubProvided ? resolveClubCode(clubValue) : null;
+      if (rejectUnknownClub && clubProvided && !club) return null;
+      if (club) {
+        const exact = catalog.filter(
+          (candidate) => candidate.club === club
+            && matchesPlayerName(candidate, normalizedName),
+        );
+        if (exact.length === 1) return exact[0];
+      }
+      const globalMatches = catalog.filter(
+        (candidate) => matchesPlayerName(candidate, normalizedName),
+      );
+      if (
+        globalMatches.length === 1
+        && (!club || globalMatches[0].club === club)
+      ) return globalMatches[0];
+      if (!club) return null;
+      const surnameMatches = catalog.filter((candidate) => {
+        const surname = candidate.surname
+          ? normalizeName(candidate.surname)
+          : "";
+        return candidate.club === club
+          && surname.length > 2
+          && normalizedName.endsWith(surname);
+      });
+      return surnameMatches.length === 1 ? surnameMatches[0] : null;
+    }
+
     function prepareReference(raw) {
       if (!raw || typeof raw !== "object") return null;
       const limits = {
@@ -104,39 +136,7 @@
         if (raw.id != null) {
           player = catalog.find((candidate) => candidate.id === raw.id) || null;
         }
-        const normalizedName = raw.name ? normalizeName(raw.name) : "";
-        const club = raw.club != null ? resolveClubCode(raw.club) : null;
-        if (!player && normalizedName) {
-          if (club) {
-            const exact = catalog.filter(
-              (candidate) => candidate.club === club
-                && matchesPlayerName(candidate, normalizedName),
-            );
-            if (exact.length === 1) player = exact[0];
-          }
-          if (!player) {
-            const globalMatches = catalog.filter(
-              (candidate) => matchesPlayerName(candidate, normalizedName),
-            );
-            if (
-              globalMatches.length === 1
-              && (!club || globalMatches[0].club === club)
-            ) {
-              player = globalMatches[0];
-            }
-          }
-          if (!player && club) {
-            const surnameMatches = catalog.filter((candidate) => {
-              const surname = candidate.surname
-                ? normalizeName(candidate.surname)
-                : "";
-              return candidate.club === club
-                && surname.length > 2
-                && normalizedName.endsWith(surname);
-            });
-            if (surnameMatches.length === 1) player = surnameMatches[0];
-          }
-        }
+        if (!player) player = resolvePlayerIdentity(raw.name, raw.club);
         if (!player) {
           result.skipped += 1;
           continue;
@@ -397,6 +397,75 @@
       };
     }
 
+    function parseEditorialGameweek(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return null;
+      const labelled = raw.match(/(?:jornada|gameweek|gw)\s*[-:#]?\s*(\d{1,2})/i);
+      const plain = raw.match(/^\s*(\d{1,2})\s*$/);
+      const gameweek = Number((labelled || plain || [])[1]);
+      return Number.isInteger(gameweek) && gameweek >= 1 && gameweek <= MAX_GAMEWEEK
+        ? gameweek
+        : null;
+    }
+
+    function prepareEditorialSignals(futbolFantasy, currentGameweek) {
+      const signals = [];
+      let skipped = 0;
+      const add = (raw, type, gameweek, clubValue) => {
+        const player = resolvePlayerIdentity(
+          raw?.player,
+          clubValue ?? raw?.club,
+          true,
+        );
+        if (!player) {
+          skipped += 1;
+          return;
+        }
+        signals.push({
+          playerId: player.id,
+          type,
+          gameweek,
+          observedAt: futbolFantasy.observedAt,
+          stale: futbolFantasy.stale,
+          sourceUrl: raw?.sourceUrl || futbolFantasy.sourceUrl,
+          issue: String(raw?.issue || "").slice(0, 120),
+          status: String(raw?.status || "").slice(0, 120),
+        });
+      };
+      for (const item of futbolFantasy.injuries) {
+        add(item, "editorialInjury", currentGameweek, item.club);
+      }
+      for (const item of futbolFantasy.suspensions) {
+        add(item, "editorialSuspension", currentGameweek, item.club);
+      }
+      for (const lineup of futbolFantasy.probableLineups) {
+        const club = resolveClubCode(lineup.club);
+        const gameweek = parseEditorialGameweek(lineup.gameweek);
+        if (!club) {
+          skipped += lineup.players.length;
+          continue;
+        }
+        for (const name of lineup.players) {
+          add({ player: name, sourceUrl: lineup.sourceUrl }, "probable", gameweek, club);
+        }
+      }
+      const unique = [];
+      const seen = new Set();
+      for (const signal of signals) {
+        const key = `${signal.playerId}|${signal.type}|${signal.gameweek || 0}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(signal);
+      }
+      return {
+        observedAt: futbolFantasy.observedAt,
+        stale: futbolFantasy.stale,
+        matched: unique.length,
+        skipped,
+        signals: unique,
+      };
+    }
+
     function preparePayload(payload, currentGameweek) {
       const source = payload && typeof payload === "object" ? payload : {};
       const playerUpdates = preparePlayerUpdates(source.players);
@@ -408,13 +477,15 @@
           Math.min(MAX_GAMEWEEK, Math.round(source.currentGW)),
         );
       }
+      const futbolFantasy = prepareFutbolFantasy(source.futbolFantasy);
       return {
         playerUpdates,
         results: preparedResults,
         odds: Array.isArray(source.odds) ? source.odds : [],
         oddsUpdatedAt: source.updatedAt || null,
         news: Array.isArray(source.news) ? source.news : [],
-        futbolFantasy: prepareFutbolFantasy(source.futbolFantasy),
+        futbolFantasy,
+        editorialSignals: prepareEditorialSignals(futbolFantasy, gameweek),
         sources: source.sources || null,
         sourceMeta: source.sourceMeta || null,
         errors: source.errors || null,
