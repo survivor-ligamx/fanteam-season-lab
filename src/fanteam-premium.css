@@ -920,6 +920,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .newsCard h4 a { color: #eef3ff; }
 .newsCard h4 a:hover { color: #9b93ff; }
 .newsTag { color: #b6c1d4; background: rgba(255,255,255,.055); }
+.newsSourceTag { color: #b9afff; background: rgba(155, 131, 255, 0.11); }
+.editorialNewsCard { border-color: rgba(155, 131, 255, 0.24); }
+.ffSection,
+.lineupNames li {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
+}
+.ffNotice {
+  border-left-color: var(--violet);
+  color: #c9c2ee;
+  background: rgba(155, 131, 255, 0.09);
+}
 
 .chip { padding: 24px; }
 .chip::before { color: rgba(155, 131, 255, 0.17); }
