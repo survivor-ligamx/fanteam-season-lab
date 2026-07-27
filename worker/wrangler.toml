@@ -16,11 +16,11 @@ compatibility_date = "2026-07-01"
 #   ODDS_API_KEY       → The Odds API (momios)
 #   GNEWS_API_KEY      → GNews (noticias)
 #
-# Integración editorial opcional. Mantener desactivada hasta contar con permiso
-# de extracción/redistribución de FutbolFantasy. Al activarla, solo publica
-# hechos mínimos, paráfrasis por plantillas y enlaces; nunca imágenes ni artículos.
+# Integración editorial autorizada por el propietario para mostrar hechos mínimos,
+# categorías, nombres semánticos de alineaciones y enlaces. Nunca publica
+# imágenes ni artículos completos y permanece separada de decisiones automáticas.
 [vars]
-FUTBOLFANTASY_ENABLED = "false"
+FUTBOLFANTASY_ENABLED = "true"
 
 
 [durable_objects]
