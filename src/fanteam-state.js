@@ -353,15 +353,25 @@
         if (!at || !validAuditSquad(before) || !validAuditSquad(after)) continue;
         const trigger = raw.trigger === "confirmed-availability"
           ? "confirmed-availability"
-          : "model-improvement";
+          : raw.trigger === "policy-migration"
+            ? "policy-migration"
+            : "model-improvement";
+        const policyMigration = raw.policyMigration === true || trigger === "policy-migration";
         autoDraftHistory.push({
           at,
           before,
           after,
           reason: typeof raw.reason === "string" ? raw.reason.slice(0, 240) : "",
           trigger,
+          policyMigration,
           gain: Number.isFinite(Number(raw.gain)) ? +Number(raw.gain).toFixed(3) : 0,
-          source: trigger === "confirmed-availability" ? "API-Football" : "FPL + modelo",
+          source: trigger === "confirmed-availability"
+            ? policyMigration
+              ? "API-Football + FPL + política"
+              : "API-Football"
+            : trigger === "policy-migration"
+              ? "FPL + política"
+              : "FPL + modelo",
           fingerprint: typeof raw.fingerprint === "string"
             ? raw.fingerprint.slice(0, 32)
             : "",
@@ -377,6 +387,9 @@
         detail: typeof sourceAutoDraft.detail === "string"
           ? sourceAutoDraft.detail.slice(0, 320)
           : "Esperando una sincronización fresca antes de revisar el borrador de GW1.",
+        policyVersion: typeof sourceAutoDraft.policyVersion === "string"
+          ? sourceAutoDraft.policyVersion.slice(0, 64)
+          : "",
         lastInputFingerprint: typeof sourceAutoDraft.lastInputFingerprint === "string"
           ? sourceAutoDraft.lastInputFingerprint.slice(0, 32)
           : "",
