@@ -60,6 +60,7 @@
       byId,
       getOdds,
       differentialEligible = () => true,
+      lineupPenalty = () => 0,
       maxGameweek = MAX_GAMEWEEK,
     } = options || {};
     if (typeof fixture !== "function") throw new Error("fixture es obligatorio");
@@ -67,6 +68,9 @@
     if (typeof getOdds !== "function") throw new Error("getOdds es obligatorio");
     if (typeof differentialEligible !== "function") {
       throw new Error("differentialEligible debe ser una función");
+    }
+    if (typeof lineupPenalty !== "function") {
+      throw new Error("lineupPenalty debe ser una función");
     }
 
     function projection(player, gameweek) {
@@ -146,9 +150,11 @@
       const squad = ids.map(byId).filter(Boolean);
       let best = null;
       for (const [defenders, midfielders, forwards] of FORMATIONS) {
+        const selectionScore = (player) => projection(player, gameweek)
+          - Math.max(0, Number(lineupPenalty(player, gameweek)) || 0);
         const pick = (position, count) => squad
           .filter((player) => player.pos === position)
-          .sort((first, second) => projection(second, gameweek) - projection(first, gameweek))
+          .sort((first, second) => selectionScore(second) - selectionScore(first))
           .slice(0, count);
         const xi = [
           ...pick("GK", 1),
@@ -158,8 +164,14 @@
         ];
         if (xi.length !== 11) continue;
         const points = xi.reduce((total, player) => total + projection(player, gameweek), 0);
-        if (!best || points > best.pts) {
-          best = { xi, pts: points, formation: `${defenders}-${midfielders}-${forwards}` };
+        const selectionPoints = xi.reduce((total, player) => total + selectionScore(player), 0);
+        if (!best || selectionPoints > best.selectionPts) {
+          best = {
+            xi,
+            pts: points,
+            selectionPts: selectionPoints,
+            formation: `${defenders}-${midfielders}-${forwards}`,
+          };
         }
       }
       if (!best) return null;

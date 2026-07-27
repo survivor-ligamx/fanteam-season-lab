@@ -481,6 +481,9 @@
             out2: outgoing2,
             inn2: incoming2,
             gain: Number(decision.gain) || 0,
+            rawGain: Number.isFinite(Number(decision.rawGain))
+              ? Number(decision.rawGain)
+              : null,
             reason: typeof decision.reason === "string" ? decision.reason : "",
           }
           : null;
@@ -488,6 +491,7 @@
         state.decision = {
           type: "save",
           gain: 0,
+          rawGain: 0,
           reason: typeof decision.reason === "string"
             ? decision.reason
             : "Decidiste acumular la transferencia gratuita.",
