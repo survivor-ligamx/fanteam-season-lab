@@ -21,7 +21,15 @@
     if (typeof migrateState !== "function") {
       throw new Error("dependencias de migración inválidas");
     }
-    const legacyState = input && input.state ? input.state : input;
+    const wrapped = Boolean(input && typeof input === "object" && "state" in input);
+    if (wrapped) {
+      if (input.app !== APP) throw new Error("respaldo de otra aplicación");
+      const version = Number(input.v);
+      if (!Number.isSafeInteger(version) || version < 1 || version > VERSION) {
+        throw new Error("versión de respaldo no compatible");
+      }
+    }
+    const legacyState = wrapped ? input.state : input;
     const validSquad = legacyState
       && Array.isArray(legacyState.squad)
       && legacyState.squad.length === 15

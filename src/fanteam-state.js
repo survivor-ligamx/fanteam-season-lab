@@ -6,6 +6,7 @@
   const MAX_FREE_TRANSFERS = 37;
   const MAX_MARKET_SNAPSHOTS = 64;
   const MAX_AUTO_DRAFT_HISTORY = 24;
+  const MAX_SHADOW_HISTORY = 64;
 
   function create(options) {
     const {
@@ -396,6 +397,90 @@
         lastCheckedAt: autoDraftDate(sourceAutoDraft.lastCheckedAt),
         lastUpdatedAt: autoDraftDate(sourceAutoDraft.lastUpdatedAt),
         history: autoDraftHistory.slice(-MAX_AUTO_DRAFT_HISTORY),
+      };
+
+      const sourceShadow = source.shadowMode && typeof source.shadowMode === "object"
+        ? source.shadowMode
+        : {};
+      const shadowHistory = [];
+      for (const raw of Array.isArray(sourceShadow.history) ? sourceShadow.history : []) {
+        if (!raw || typeof raw !== "object") continue;
+        const at = autoDraftDate(raw.at);
+        const dataUpdatedAt = autoDraftDate(raw.dataUpdatedAt);
+        const gameweek = Math.round(Number(raw.gw));
+        const squadIds = Array.isArray(raw.squadIds)
+          ? raw.squadIds.map(Number).filter(knownPlayer)
+          : [];
+        const recommendation = raw.recommendation && typeof raw.recommendation === "object"
+          ? raw.recommendation
+          : {};
+        const type = recommendation.type === "transfer" ? "transfer" : "save";
+        const outId = Number(recommendation.outId) || null;
+        const inId = Number(recommendation.inId) || null;
+        const out2Id = Number(recommendation.out2Id) || null;
+        const in2Id = Number(recommendation.in2Id) || null;
+        const hasSecondary = Boolean(out2Id || in2Id);
+        let transitionValid = type === "save";
+        if (type === "transfer" && knownPlayer(outId) && knownPlayer(inId)) {
+          const outgoing = playerByNumericId.get(outId);
+          const incoming = playerByNumericId.get(inId);
+          const primaryValid = squadIds.includes(outId)
+            && !squadIds.includes(inId)
+            && outgoing.pos === incoming.pos;
+          const secondaryValid = !hasSecondary || (
+            knownPlayer(out2Id)
+            && knownPlayer(in2Id)
+            && new Set([outId, inId, out2Id, in2Id]).size === 4
+            && squadIds.includes(out2Id)
+            && !squadIds.includes(in2Id)
+            && playerByNumericId.get(out2Id).pos === playerByNumericId.get(in2Id).pos
+          );
+          if (primaryValid && secondaryValid) {
+            const after = squadIds.map((id) => (
+              id === outId ? inId : hasSecondary && id === out2Id ? in2Id : id
+            ));
+            transitionValid = validAuditSquad(after);
+          }
+        }
+        if (
+          !at
+          || !dataUpdatedAt
+          || gameweek < 1
+          || gameweek > MAX_GAMEWEEK
+          || !validAuditSquad(squadIds)
+          || !transitionValid
+        ) continue;
+        shadowHistory.push({
+          at,
+          gw: gameweek,
+          dataUpdatedAt,
+          squadIds,
+          recommendation: {
+            type,
+            outId: type === "transfer" ? outId : null,
+            inId: type === "transfer" ? inId : null,
+            out2Id: type === "transfer" && out2Id ? out2Id : null,
+            in2Id: type === "transfer" && in2Id ? in2Id : null,
+            gain: Number.isFinite(Number(recommendation.gain))
+              ? +Number(recommendation.gain).toFixed(3)
+              : 0,
+            reason: typeof recommendation.reason === "string"
+              ? recommendation.reason.slice(0, 240)
+              : "",
+          },
+          projectedXi: Number.isFinite(Number(raw.projectedXi))
+            ? +Number(raw.projectedXi).toFixed(3)
+            : null,
+          captainId: knownPlayer(raw.captainId) ? Number(raw.captainId) : null,
+          viceId: knownPlayer(raw.viceId) ? Number(raw.viceId) : null,
+          fingerprint: typeof raw.fingerprint === "string"
+            ? raw.fingerprint.slice(0, 32)
+            : "",
+        });
+      }
+      state.shadowMode = {
+        enabled: sourceShadow.enabled !== false,
+        history: shadowHistory.slice(-MAX_SHADOW_HISTORY),
       };
 
       const cleanActuals = {};
