@@ -331,11 +331,17 @@
         const result = text(value, 40);
         return result && Number.isFinite(new Date(result).getTime()) ? result : null;
       };
-      const list = (value, maximum, prepare) => (
-        Array.isArray(value)
-          ? value.slice(0, maximum).map(prepare).filter(Boolean)
-          : []
-      );
+      const list = (value, maximum, prepare) => {
+        const result = [];
+        if (!Array.isArray(value)) return result;
+        for (const item of value) {
+          const prepared = prepare(item);
+          if (!prepared) continue;
+          result.push(prepared);
+          if (result.length >= maximum) break;
+        }
+        return result;
+      };
       const clubs = (value) => list(value, 4, (club) => text(club, 48) || null);
       const availability = (value) => list(value, 80, (item) => {
         if (!item || typeof item !== "object") return null;

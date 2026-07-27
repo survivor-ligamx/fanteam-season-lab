@@ -24,8 +24,14 @@ function categoryFor(item) {
   const value = `${item?.type || ""} ${item?.title || ""}`.toLowerCase();
   if (/lesi|injur|duda|baja/.test(value)) return "Disponibilidad";
   if (/sanci|suspend/.test(value)) return "Sanciones";
-  if (/alineac|titular|suplent/.test(value)) return "Alineaciones";
-  if (/fichaj|traspas|mercado/.test(value)) return "Mercado";
+  if (/selecci|internacional|fecha fifa/.test(value)) return "Selecciones";
+  if (/alineac|titular|suplent|convocat/.test(value)) return "Alineaciones";
+  if (/entren|sesión|sesion|grupo/.test(value)) return "Entrenamiento";
+  const marketContext = /fichaj|traspas|cesi|renov|acuerdo|oferta|interés|interes|negocia|mercado|nuevo jugador|firma/.test(value);
+  const uncertainMarket = /podría|podria|oferta|interés|interes|negocia|rumor|valora|estudia/.test(value);
+  if (marketContext && uncertainMarket) return "Rumores";
+  if (/hace oficial el fichaje|fichaje oficial|nuevo jugador|anuncia la contrataci|traspaso confirmado|firma por|se incorpora/.test(value)) return "Mercado oficial";
+  if (/fichaj|traspas|cesi|renov|acuerdo|oferta|interés|interes|negocia|mercado|podría|podria/.test(value)) return "Rumores";
   return "Actualidad";
 }
 
@@ -51,34 +57,54 @@ function normalizeSource(source, isEnabled = true) {
     return emptySource(true, "respuesta inválida");
   }
 
-  const records = [...(source.news || []), ...(source.events || [])];
-  const news = records.slice(0, 20).map((item) => {
+  const records = [
+    ...(Array.isArray(source.news) ? source.news : []),
+    ...(Array.isArray(source.events) ? source.events : []),
+  ];
+  const news = [];
+  for (const item of records) {
+    if (!item || typeof item !== "object") continue;
     const category = categoryFor(item);
-    const sourceUrl = trustedUrl(item?.url, trustedUrl(item?.sourceUrl, SOURCE_URL));
-    if (!sourceUrl) return null;
-    return {
+    const sourceUrl = trustedUrl(item.url, trustedUrl(item.sourceUrl));
+    if (!sourceUrl) continue;
+    news.push({
       summary: `Nueva actualización de ${category.toLowerCase()} publicada por FutbolFantasy.`,
       category,
       clubs: [],
-      publishedAt: item?.publishedAt || null,
+      publishedAt: item.publishedAt || null,
       publishedLabel: "",
       sourceUrl,
-    };
-  }).filter(Boolean);
+    });
+    if (news.length >= 20) break;
+  }
 
-  const probableLineups = (source.probableLineups || []).slice(0, 30).map((lineup) => {
-    const club = String(lineup?.club || "").replace(/\s+/g, " ").trim().slice(0, 48);
-    const players = (lineup?.players || []).slice(0, 15).map((player) => (
-      String(player?.name || player || "").replace(/\s+/g, " ").trim().slice(0, 80)
-    )).filter(Boolean);
-    if (!club || !players.length) return null;
-    return {
+  const lineupRecords = Array.isArray(source.probableLineups) ? source.probableLineups : [];
+  const probableLineups = [];
+  for (const lineup of lineupRecords) {
+    if (!lineup || typeof lineup !== "object" || typeof lineup.club !== "string") continue;
+    const club = lineup.club.replace(/\s+/g, " ").trim().slice(0, 48);
+    const rawPlayers = Array.isArray(lineup.players) ? lineup.players : [];
+    const players = [];
+    for (const player of rawPlayers) {
+      const rawName = typeof player === "string"
+        ? player
+        : player && typeof player.name === "string"
+          ? player.name
+          : "";
+      const name = rawName.replace(/\s+/g, " ").trim().slice(0, 80);
+      if (!name) continue;
+      players.push(name);
+      if (players.length >= 15) break;
+    }
+    if (!club || !players.length) continue;
+    probableLineups.push({
       club,
       gameweek: "",
       players,
-      sourceUrl: trustedUrl(lineup?.sourceUrl, FUTBOL_FANTASY_URLS.lineups),
-    };
-  }).filter(Boolean);
+      sourceUrl: trustedUrl(lineup.sourceUrl, FUTBOL_FANTASY_URLS.lineups),
+    });
+    if (probableLineups.length >= 30) break;
+  }
 
   return {
     mode: "informational",
