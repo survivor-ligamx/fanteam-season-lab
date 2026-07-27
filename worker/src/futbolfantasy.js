@@ -133,7 +133,15 @@ export function parseFutbolFantasyPage(html, sourceUrl, kind, now = new Date()) 
 
 async function fetchPage(url, fetchImpl) {
   try {
-    const response = await fetchImpl(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), headers: { Accept: "text/html" } });
+    const response = await fetchImpl(url, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
+        "User-Agent": "Mozilla/5.0 (compatible; FanTeamData/2.3; +https://survivor-ligamx.github.io/fanteam-season-lab/)"
+      }
+    });
     if (!response.ok) return { ok: false, error: `HTTP ${response.status}` };
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_HTML_BYTES) return { ok: false, error: "respuesta demasiado grande" };
