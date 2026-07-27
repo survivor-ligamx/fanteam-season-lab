@@ -315,7 +315,7 @@ test("respaldo v5 hace round-trip por las rutas reales de producción", async (t
   assert.equal(restored.actualsByGW[6].players[player.id].points, 7);
   assert.equal(restored.priceOverrides[player.id], state.priceOverrides[player.id]);
   assert.throws(
-    () => api.parseSeasonBackup({ v: 5, state: { squad: [player.id] } }),
+    () => api.parseSeasonBackup({ app: "fanteam-season-lab", v: 5, state: { squad: [player.id] } }),
     /estructura inválida/,
   );
 });
@@ -720,4 +720,129 @@ test("GW1 permite ajustes consecutivos sin fijar ni consumir FT", async (t) => {
   assert.equal(persisted.free, 1);
   assert.equal(persisted.decision, null);
   assert.deepEqual(persisted.squad, plain(api.state.squad));
+});
+
+
+test("rechaza wrappers de respaldo incompatibles y conserva estados legacy explícitos", async (t) => {
+  const { api } = await setup(t);
+  const backup = plain(api.createSeasonBackup());
+
+  assert.throws(
+    () => api.parseSeasonBackup({ ...backup, app: "otra-aplicacion" }),
+    /otra aplicación/,
+  );
+  assert.throws(
+    () => api.parseSeasonBackup({ ...backup, v: 6 }),
+    /versión de respaldo no compatible/,
+  );
+  assert.throws(
+    () => api.parseSeasonBackup({ ...backup, v: null }),
+    /versión de respaldo no compatible/,
+  );
+
+  const legacy = api.parseSeasonBackup(plain(backup.state));
+  assert.deepEqual(plain(legacy.state.squad), plain(backup.state.squad));
+  assert.equal(legacy.endpoint, "");
+});
+
+test("importación transaccional persiste estado y endpoint antes de reemplazar memoria", async (t) => {
+  const { api, dom } = await setup(t);
+  const backup = plain(api.createSeasonBackup());
+  backup.state.gw = 7;
+  backup.endpoint = "https://restored.test/worker";
+
+  const result = api.replaceSeasonFromBackup(backup, () => true);
+  assert.equal(result.ok, true);
+  assert.equal(api.state.gw, 7);
+  assert.equal(dom.window.localStorage.getItem("fanteam-data-endpoint"), backup.endpoint);
+  assert.equal(
+    JSON.parse(dom.window.localStorage.getItem("fanteam-season-lab-v1")).gw,
+    7,
+  );
+});
+
+test("importación revierte almacenamiento y memoria si falla la persistencia", async (t) => {
+  const { api, dom } = await setup(t);
+  const current = plain(api.state);
+  dom.window.localStorage.setItem("fanteam-season-lab-v1", JSON.stringify(current));
+  dom.window.localStorage.setItem("fanteam-data-endpoint", "https://previous.test/worker");
+  const beforeStateRaw = dom.window.localStorage.getItem("fanteam-season-lab-v1");
+  const backup = plain(api.createSeasonBackup());
+  backup.state.gw = 9;
+  backup.endpoint = "https://new.test/worker";
+
+  const prototype = dom.window.Storage.prototype;
+  const originalSetItem = prototype.setItem;
+  prototype.setItem = function setItemWithQuotaFailure(key, value) {
+    if (key === "fanteam-data-endpoint" && value === backup.endpoint) {
+      throw new dom.window.DOMException("quota llena", "QuotaExceededError");
+    }
+    return originalSetItem.call(this, key, value);
+  };
+  try {
+    assert.throws(
+      () => api.replaceSeasonFromBackup(backup, () => true),
+      /quota llena/,
+    );
+  } finally {
+    prototype.setItem = originalSetItem;
+  }
+
+  assert.deepEqual(plain(api.state), current);
+  assert.equal(dom.window.localStorage.getItem("fanteam-season-lab-v1"), beforeStateRaw);
+  assert.equal(
+    dom.window.localStorage.getItem("fanteam-data-endpoint"),
+    "https://previous.test/worker",
+  );
+});
+
+
+test("normaliza y limita el historial no invasivo del modo sombra", async (t) => {
+  const { api } = await setup(t);
+  const squad = plain(api.state.squad);
+  const outgoing = api.byId(squad[0]);
+  const incoming = api.players.find((player) => (
+    player.pos === outgoing.pos && !squad.includes(player.id)
+  ));
+  const entries = Array.from({ length: 66 }, (_, index) => ({
+    at: new Date(Date.UTC(2026, 8, 1, 0, index)).toISOString(),
+    gw: 2,
+    dataUpdatedAt: new Date(Date.UTC(2026, 8, 1, 0, index)).toISOString(),
+    squadIds: squad,
+    recommendation: {
+      type: "save",
+      gain: 0,
+      reason: `observación ${index}`,
+    },
+    projectedXi: 50 + index / 100,
+    captainId: squad[0],
+    viceId: squad[1],
+    fingerprint: `shadow-${index}`,
+  }));
+  entries.push({
+    at: "2026-09-02T00:00:00.000Z",
+    gw: 2,
+    dataUpdatedAt: "2026-09-02T00:00:00.000Z",
+    squadIds: squad,
+    recommendation: {
+      type: "transfer",
+      outId: outgoing.id,
+      inId: incoming.id,
+      out2Id: squad[1],
+      in2Id: null,
+      gain: 3,
+    },
+    fingerprint: "incompleta",
+  });
+
+  const migrated = api.migrateState({
+    ...plain(api.state),
+    shadowMode: { enabled: true, history: entries },
+  });
+
+  assert.equal(migrated.shadowMode.enabled, true);
+  assert.equal(migrated.shadowMode.history.length, 64);
+  assert.equal(migrated.shadowMode.history[0].fingerprint, "shadow-2");
+  assert.equal(migrated.shadowMode.history.at(-1).fingerprint, "shadow-65");
+  assert.deepEqual(plain(api.migrateState(plain(migrated)).shadowMode), plain(migrated.shadowMode));
 });

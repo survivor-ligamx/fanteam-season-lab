@@ -50,8 +50,34 @@
       return migrateState(createInitialState());
     }
 
+    function getStateRaw() {
+      try {
+        return storage.getItem(STATE_KEY);
+      } catch (_) {
+        return null;
+      }
+    }
+
     function saveState(state) {
       storage.setItem(STATE_KEY, JSON.stringify(state));
+    }
+
+    function replaceState(state, endpoint) {
+      const previousState = storage.getItem(STATE_KEY);
+      const previousEndpoint = storage.getItem(ENDPOINT_KEY);
+      try {
+        storage.setItem(STATE_KEY, JSON.stringify(state));
+        if (endpoint != null) storage.setItem(ENDPOINT_KEY, String(endpoint));
+        return true;
+      } catch (error) {
+        try {
+          if (previousState == null) storage.removeItem(STATE_KEY);
+          else storage.setItem(STATE_KEY, previousState);
+          if (previousEndpoint == null) storage.removeItem(ENDPOINT_KEY);
+          else storage.setItem(ENDPOINT_KEY, previousEndpoint);
+        } catch (_) {}
+        throw error;
+      }
     }
 
     function resetState() {
@@ -85,7 +111,9 @@
 
     return Object.freeze({
       loadState,
+      getStateRaw,
       saveState,
+      replaceState,
       resetState,
       getEndpoint,
       setEndpoint,

@@ -337,3 +337,319 @@ test("el último deadline cierra GW38 y marca la temporada completa", () => {
     dom.window.Date.now = originalNow;
   }
 });
+
+
+
+test("syncData corta solicitudes colgadas y conserva la temporada", async () => {
+  dom.window.localStorage.setItem("fanteam-data-endpoint", "https://timeout.test/worker");
+  api.setState({ ...api.state, autoDraft: { ...api.state.autoDraft, enabled: false } });
+  const before = JSON.parse(JSON.stringify(api.state));
+  const fetchFn = (_url, { signal }) => new Promise((_resolve, reject) => {
+    signal?.addEventListener("abort", () => reject(
+      new dom.window.DOMException("abortada", "AbortError"),
+    ), { once: true });
+  });
+
+  const result = await api.syncData(false, { fetchFn, timeoutMs: 10 });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.squad)), before.squad);
+  assert.equal(result.code, "fallback");
+  assert.match(result.error, /tiempo límite/);
+  assert.match(dom.window.document.querySelector("#syncMessage").textContent, /Se conserva/);
+});
+
+test("caché fresca declarada nunca consume la migración automática", () => {
+  const now = Date.now();
+  api.setState({
+    ...api.state,
+    gw: 1,
+    history: [],
+    seasonComplete: false,
+    autoDraft: {
+      ...api.state.autoDraft,
+      enabled: true,
+      policyVersion: "budget-enabler-mid-v2",
+      lastInputFingerprint: "legacy",
+      history: [],
+    },
+  });
+  const before = Array.from(api.state.squad);
+  const payload = {
+    ok: true,
+    updatedAt: new Date(now).toISOString(),
+    freshUntil: new Date(now + 60_000).toISOString(),
+    currentGW: 1,
+    players: api.players.map((player) => ({
+      id: player.id,
+      name: player.name,
+      club: player.club,
+      reference: { minutes: 900, pointsPerGame: 4, xg90: 0.1 },
+    })),
+    results: [],
+    liveFixtures: [],
+    odds: [],
+    news: [],
+    sources: { apiFootball: true, footballData: false, news: false, odds: false, fpl: true },
+    sourceMeta: { apiFootball: { stale: true, cacheStatus: "stale-cache" } },
+    errors: {},
+  };
+
+  api.applyPayload(payload, true);
+
+  assert.deepEqual(Array.from(api.state.squad), before);
+  assert.equal(api.state.autoDraft.policyVersion, "budget-enabler-mid-v2");
+  assert.equal(api.state.autoDraft.history.length, 0);
+  assert.equal(api.sync.fromCache, true);
+});
+
+test("API-Football stale no aplica confidence, minutes ni status caducados", () => {
+  const selected = api.byId(api.state.squad[0]);
+  api.setState({
+    ...api.state,
+    autoDraft: { ...api.state.autoDraft, enabled: false },
+  });
+  const before = Array.from(api.state.squad);
+  const payload = {
+    ok: true,
+    updatedAt: new Date().toISOString(),
+    freshUntil: new Date(Date.now() + 60_000).toISOString(),
+    currentGW: 1,
+    players: [{
+      id: selected.id,
+      name: selected.name,
+      club: selected.club,
+      confidence: 1,
+      minutes: 0,
+      status: "Out stale",
+      reference: { minutes: 900, pointsPerGame: 4, xg90: 0.1 },
+    }],
+    results: [],
+    liveFixtures: [],
+    odds: [],
+    news: [],
+    sources: { apiFootball: true, footballData: false, news: false, odds: false, fpl: true },
+    sourceMeta: { apiFootball: { stale: true, cacheStatus: "stale-cache" } },
+    errors: {},
+  };
+
+  api.applyPayload(payload, false);
+
+  assert.deepEqual(Array.from(api.state.squad), before);
+  assert.equal(selected.confidence, selected.baseConfidence);
+  assert.equal(selected.minutes, selected.baseMinutes);
+  assert.notEqual(selected.status, "Out stale");
+  assert.equal(api.state.autoDraft.status, "paused");
+});
+
+test("sincronizaciones concurrentes aplican solo la solicitud más reciente", async () => {
+  dom.window.localStorage.setItem("fanteam-data-endpoint", "https://race.test/worker");
+  api.setState({ ...api.state, autoDraft: { ...api.state.autoDraft, enabled: false } });
+  const firstFetch = (_url, { signal }) => new Promise((_resolve, reject) => {
+    signal?.addEventListener("abort", () => reject(
+      new dom.window.DOMException("abortada", "AbortError"),
+    ), { once: true });
+  });
+  const latestPayload = {
+    ok: true,
+    updatedAt: "2026-07-27T02:00:00.000Z",
+    freshUntil: "2026-07-27T02:02:00.000Z",
+    currentGW: 1,
+    players: [],
+    results: [],
+    liveFixtures: [],
+    odds: [],
+    news: [],
+    sources: { apiFootball: false, footballData: false, news: false, odds: false, fpl: false },
+    sourceMeta: {},
+    errors: {},
+  };
+  const secondFetch = async () => ({ ok: true, status: 200, json: async () => latestPayload });
+
+  const first = api.syncData(false, { fetchFn: firstFetch, timeoutMs: 1000 });
+  await Promise.resolve();
+  const second = api.syncData(false, { fetchFn: secondFetch, timeoutMs: 1000 });
+  const [firstResult, secondResult] = await Promise.all([first, second]);
+
+  assert.equal(firstResult.code, "superseded");
+  assert.equal(secondResult.code, "updated");
+  assert.equal(api.sync.updatedAt, latestPayload.updatedAt);
+  assert.equal(api.sync.lastError, null);
+});
+
+
+
+test("modo sombra registra una recomendación fresca sin alterar plantilla ni decisión", () => {
+  const now = Date.now();
+  api.setState({
+    ...api.state,
+    gw: 2,
+    history: [],
+    seasonComplete: false,
+    decision: { type: "save", gain: 0, reason: "Decisión manual preservada" },
+    shadowMode: { enabled: true, history: [] },
+  });
+  const protectedState = {
+    squad: Array.from(api.state.squad),
+    bank: api.state.bank,
+    purchasePrices: JSON.parse(JSON.stringify(api.state.purchasePrices)),
+    decision: JSON.parse(JSON.stringify(api.state.decision)),
+  };
+  const payload = {
+    ok: true,
+    updatedAt: new Date(now).toISOString(),
+    freshUntil: new Date(now + 60_000).toISOString(),
+    currentGW: 2,
+    players: [],
+    results: [],
+    liveFixtures: [],
+    odds: [],
+    news: [],
+    sources: { apiFootball: false, footballData: false, news: false, odds: false, fpl: true },
+    sourceMeta: {},
+    errors: {},
+  };
+
+  api.applyPayload(payload, false);
+  api.applyPayload(payload, false);
+
+  assert.deepEqual(Array.from(api.state.squad), protectedState.squad);
+  assert.equal(api.state.bank, protectedState.bank);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.purchasePrices)), protectedState.purchasePrices);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.decision)), protectedState.decision);
+  assert.equal(api.state.shadowMode.history.length, 1);
+  const entry = api.state.shadowMode.history[0];
+  assert.equal(entry.gw, 2);
+  assert.deepEqual(Array.from(entry.squadIds), protectedState.squad);
+  assert.match(entry.fingerprint, /^[0-9a-f]{8}$/);
+  assert.equal(["save", "transfer"].includes(entry.recommendation.type), true);
+});
+
+test("modo sombra ignora caché y respeta desactivación explícita", () => {
+  const now = Date.now();
+  api.setState({
+    ...api.state,
+    gw: 2,
+    seasonComplete: false,
+    shadowMode: { enabled: false, history: [] },
+  });
+  const payload = {
+    ok: true,
+    updatedAt: new Date(now).toISOString(),
+    freshUntil: new Date(now + 60_000).toISOString(),
+    currentGW: 2,
+    players: [],
+    results: [],
+    liveFixtures: [],
+    odds: [],
+    news: [],
+    sources: { apiFootball: false, footballData: false, news: false, odds: false, fpl: true },
+    sourceMeta: {},
+    errors: {},
+  };
+
+  api.applyPayload(payload, false);
+  assert.equal(api.state.shadowMode.history.length, 0);
+
+  api.setState({ ...api.state, shadowMode: { enabled: true, history: [] } });
+  api.applyPayload(payload, true);
+  assert.equal(api.state.shadowMode.history.length, 0);
+});
+
+
+
+test("vaciar el endpoint supersede una respuesta cuyo body seguía pendiente", async () => {
+  dom.window.localStorage.setItem("fanteam-data-endpoint", "https://body-race.test/worker");
+  api.setState({
+    ...api.state,
+    gw: 1,
+    history: [],
+    seasonComplete: false,
+    autoDraft: { ...api.state.autoDraft, enabled: false },
+  });
+  const before = Array.from(api.state.squad);
+  let resolveBody;
+  const body = new Promise((resolve) => { resolveBody = resolve; });
+  const fetchFn = async () => ({ ok: true, status: 200, json: () => body });
+  const pending = api.syncData(false, { fetchFn, timeoutMs: 1000 });
+  await Promise.resolve();
+  dom.window.localStorage.setItem("fanteam-data-endpoint", "");
+  const base = await api.syncData(false, { fetchFn, timeoutMs: 1000 });
+  resolveBody({
+    ok: true,
+    updatedAt: new Date().toISOString(),
+    freshUntil: new Date(Date.now() + 60_000).toISOString(),
+    currentGW: 2,
+    players: [], results: [], liveFixtures: [], odds: [], news: [],
+    sources: { apiFootball: false, footballData: true, news: false, odds: false, fpl: false },
+    sourceMeta: {}, errors: {},
+  });
+  const stale = await pending;
+
+  assert.equal(base.code, "base");
+  assert.equal(stale.code, "superseded");
+  assert.deepEqual(Array.from(api.state.squad), before);
+  assert.equal(api.state.gw, 1);
+  assert.equal(api.sync.sources, null);
+});
+
+test("timeout también cubre un body JSON que nunca termina", async () => {
+  dom.window.localStorage.setItem("fanteam-data-endpoint", "https://body-timeout.test/worker");
+  const fetchFn = async () => ({
+    ok: true,
+    status: 200,
+    json: () => new Promise(() => {}),
+  });
+
+  const result = await api.syncData(false, { fetchFn, timeoutMs: 10 });
+
+  assert.equal(result.code, "fallback");
+  assert.match(result.error, /tiempo límite/);
+});
+
+test("modo sombra rechaza payload news-only y limpia disponibilidad heredada", () => {
+  const selected = api.byId(api.state.squad[0]);
+  const now = Date.now();
+  api.setState({
+    ...api.state,
+    gw: 2,
+    history: [],
+    seasonComplete: false,
+    shadowMode: { enabled: true, history: [] },
+  });
+  const sportsPayload = {
+    ok: true,
+    updatedAt: new Date(now).toISOString(),
+    freshUntil: new Date(now + 60_000).toISOString(),
+    currentGW: 2,
+    players: [{
+      id: selected.id,
+      name: selected.name,
+      club: selected.club,
+      confidence: 55,
+      minutes: 45,
+      status: "Duda fresca",
+    }],
+    results: [], liveFixtures: [], odds: [], news: [],
+    sources: { apiFootball: true, footballData: false, news: false, odds: false, fpl: false },
+    sourceMeta: { apiFootball: { stale: false } },
+    errors: {},
+  };
+  api.applyPayload(sportsPayload, false);
+  assert.equal(api.state.shadowMode.history.length, 1);
+  assert.equal(selected.confidence, 55);
+
+  const newsOnly = {
+    ...sportsPayload,
+    updatedAt: new Date(now + 1_000).toISOString(),
+    players: [],
+    news: [{ title: "Solo noticia", description: "sin señal deportiva" }],
+    sources: { apiFootball: false, footballData: false, news: true, odds: false, fpl: false },
+    sourceMeta: {},
+  };
+  api.applyPayload(newsOnly, false);
+
+  assert.equal(api.state.shadowMode.history.length, 1);
+  assert.equal(selected.confidence, selected.baseConfidence);
+  assert.equal(selected.minutes, selected.baseMinutes);
+  assert.notEqual(selected.status, "Duda fresca");
+});
