@@ -2,7 +2,7 @@
 # Respaldo del Worker desplegado. Deploy: `npx wrangler deploy` desde esta carpeta.
 
 name = "fanteam-data"
-main = "src/index.js"
+main = "src/entry-futbolfantasy.js"
 compatibility_date = "2026-07-01"
 
 # NOTA: este Worker NO usa cron. La frescura la gobierna el caché de borde
