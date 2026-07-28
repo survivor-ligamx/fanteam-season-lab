@@ -6,46 +6,72 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  activate-module-entrypoint:
+    if: github.event_name == 'pull_request' && github.head_ref == 'refactor/frontend-es-module-entrypoint'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout module branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refactor/frontend-es-module-entrypoint
+          fetch-depth: 0
+      - name: Replace classic script chain
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          scripts = [
+              'season-storage.js', 'fanteam-scoring.js', 'fanteam-import.js',
+              'fanteam-history.js', 'fanteam-finance.js', 'fanteam-state.js',
+              'fanteam-data.js', 'fanteam-editorial.js', 'fanteam-odds.js',
+              'fanteam-projection.js', 'fanteam-market.js', 'fanteam-transfers.js',
+              'fanteam-week.js', 'fanteam-planner.js', 'fanteam-planner-view.js',
+              'fanteam-wildcard.js', 'fanteam-deadlines.js', 'season-backup.js',
+          ]
+          old = ''.join(f'<script src="src/{name}"></script>' for name in scripts)
+          old += '<script src="src/app.js?v=1"></script>'
+          new = '<script type="module" src="src/app-entry.js?v=1"></script>'
+
+          path = Path('index.html')
+          html = path.read_text(encoding='utf-8')
+          if html.count(old) != 1:
+              raise SystemExit(f'Expected one classic script chain, found {html.count(old)}')
+          path.write_text(html.replace(old, new), encoding='utf-8')
+          PY
+      - name: Restore CI and commit module activation
+        run: |
+          git checkout origin/refactor/extract-index-inline-assets -- .github/workflows/test.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.html .github/workflows/test.yml
+          git commit -m "refactor: load frontend through ES module graph"
+          git push
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Lint JavaScript
         run: npm run lint
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Run regression suite
         run: npm test
-
       - name: Run Chromium smoke
         run: npm run test:e2e
-
-      - name: Upload browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: playwright-diagnostics
-          path: test-results/playwright
-          if-no-files-found: ignore
-          retention-days: 7

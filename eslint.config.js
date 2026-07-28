@@ -16,7 +16,7 @@ export default [
     },
   },
   {
-    files: ["src/premier-player-lab.js", "src/player-lab/**/*.js"],
+    files: ["src/app-entry.js", "src/premier-player-lab.js", "src/player-lab/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
