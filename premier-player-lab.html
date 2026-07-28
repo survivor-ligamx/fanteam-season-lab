@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Player Lab Premier League · FanTeam Elite Lab</title>
+  <meta name="description" content="Compara FanTeam con señales locales de FPL Copilot, Draft Fantasy y alineaciones probables verificadas, simula 10.000 escenarios Monte Carlo y construye una plantilla FanTeam robusta y explicable para GW1.">
+  <link rel="stylesheet" href="src/premier-pages.css?v=2">
+</head>
+<body data-page="player-lab">
+  <a class="skip-link" href="#mainContent">Saltar al contenido principal</a>
+  <div class="pl-shell">
+    <aside class="pl-sidebar">
+      <a class="pl-brand" href="index.html#week" aria-label="Volver a FanTeam Elite Lab">
+        <span class="pl-brand-mark" aria-hidden="true">FT</span>
+        <span class="pl-brand-copy"><small>Premier intelligence</small><strong>FanTeam <em>Elite</em> Lab</strong></span>
+      </a>
+      <nav class="pl-nav" aria-label="Herramientas Premier League">
+        <span class="pl-nav-label">Laboratorio</span>
+        <a href="index.html#week"><span class="pl-nav-icon" aria-hidden="true">←</span>Centro FanTeam</a>
+        <a href="premier-radar.html"><span class="pl-nav-icon" aria-hidden="true">6W</span>Radar PL</a>
+        <a href="premier-player-lab.html" aria-current="page"><span class="pl-nav-icon" aria-hidden="true">VS</span>Player Lab</a>
+        <a href="index.html#squad"><span class="pl-nav-icon" aria-hidden="true">XI</span>Plantilla</a>
+        <a href="index.html#market"><span class="pl-nav-icon" aria-hidden="true">M</span>Mercado</a>
+      </nav>
+      <div class="pl-side-meta">
+        <small>Comparación activa</small>
+        <strong id="sideCompareCount">0 / 4</strong>
+        <small id="sideLabGw">Desde GW1</small>
+      </div>
+    </aside>
+
+    <div class="pl-main">
+      <header class="pl-topbar">
+        <div class="pl-topbar-title"><small>Premier League · 2026/27</small><strong>Player Lab</strong></div>
+        <div class="pl-topbar-actions">
+          <span class="pl-status base" id="dataStatus" role="status"><i class="pl-status-dot" aria-hidden="true"></i><span>Preparando datos…</span></span>
+          <button class="pl-button" id="refreshLab" type="button">Actualizar</button>
+        </div>
+      </header>
+
+      <main class="pl-content" id="mainContent" tabindex="-1">
+        <section class="pl-hero" aria-labelledby="labTitle">
+          <div class="pl-hero-copy">
+            <span class="pl-eyebrow">Player Lab · 2 a 4 jugadores</span>
+            <h1 id="labTitle">Compara perfiles, no solo nombres</h1>
+            <p>Contrasta FanTeam con tus señales locales de FPL Copilot, Draft Fantasy y una alineación probable —nunca confirmada—, y convierte proyecciones, calendario, cuotas y disponibilidad en un consenso explicable que Monte Carlo somete a 10.000 escenarios para construir la plantilla GW1.</p>
+            <div class="pl-hero-actions">
+              <button class="pl-button primary" id="copyLabLink" type="button">Copiar comparación</button>
+              <a class="pl-button" href="premier-radar.html">Abrir Radar PL</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="pl-card pl-toolbar" aria-label="Buscar jugadores">
+          <div class="pl-field grow">
+            <label for="labSearch">Jugador o club</label>
+            <input class="pl-input" id="labSearch" type="search" autocomplete="off" placeholder="Haaland, Arsenal, MCI…">
+          </div>
+          <div class="pl-field">
+            <label for="labPosition">Posición</label>
+            <select class="pl-select" id="labPosition">
+              <option value="">Todas</option><option value="GK">GK</option><option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option>
+            </select>
+          </div>
+          <div class="pl-field">
+            <label for="labMaxPrice">Precio FanTeam máximo</label>
+            <select class="pl-select" id="labMaxPrice">
+              <option value="30">Sin límite</option><option value="5">5.0M</option><option value="6">6.0M</option><option value="7.5">7.5M</option><option value="9">9.0M</option><option value="10.5">10.5M</option>
+            </select>
+          </div>
+          <div class="pl-field">
+            <label for="labSort">Priorizar</label>
+            <select class="pl-select" id="labSort">
+              <option value="h6">Proyección 6GW</option><option value="value">Valor 6GW/M</option><option value="gw">Próxima GW</option><option value="confidence">Confianza</option><option value="price">Precio</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="model-compare" aria-labelledby="modelCompareTitle">
+          <div class="model-compare-heading">
+            <div>
+              <span class="pl-eyebrow">Comparación de fuentes · filtros compartidos</span>
+              <h2 id="modelCompareTitle">FanTeam Projection · señales externas · Consenso GW1</h2>
+              <p class="pl-note">Las tablas comparten búsqueda, posición y precio FanTeam máximo. Copilot y Draft son señales locales opcionales; la alineación probable solo informa y modula riesgo, y el consenso permanece fijado en GW1.</p>
+            </div>
+            <div class="copilot-import-actions">
+              <input class="sr-only" id="copilotFile" type="file" accept=".json,.csv,application/json,text/csv" tabindex="-1" aria-label="Archivo autorizado de FPL Copilot en formato JSON o CSV">
+              <button class="pl-button primary" id="copilotImport" type="button">Importar JSON/CSV autorizado</button>
+              <button class="pl-button danger" id="copilotClear" type="button" disabled>Borrar Copilot local</button>
+            </div>
+          </div>
+
+          <div class="pl-card copilot-source-card" aria-live="polite">
+            <div>
+              <small>Estado de FPL Copilot</small>
+              <strong id="copilotStatus">Sin importación local</strong>
+              <span id="copilotMeta">No se realiza ninguna descarga automática.</span>
+            </div>
+            <a class="pl-button compact" href="https://fplcopilot.com/expected-points" target="_blank" rel="noopener noreferrer">Abrir fuente original</a>
+          </div>
+
+          <div class="pl-card copilot-source-card" aria-live="polite">
+            <div>
+              <small>Estado de Draft Fantasy</small>
+              <strong id="draftStatus">Sin proyecciones locales</strong>
+              <span id="draftMeta">Draft no modifica precio, posición ni scoring FanTeam.</span>
+            </div>
+            <div class="copilot-import-actions">
+              <input class="sr-only" id="draftFile" type="file" accept=".csv,text/csv" tabindex="-1" aria-label="CSV local de proyecciones Draft Fantasy">
+              <button class="pl-button primary" id="draftImport" type="button">Importar CSV Draft</button>
+              <button class="pl-button danger" id="draftClear" type="button" disabled>Borrar Draft local</button>
+              <a class="pl-button compact" href="https://www.draftfantasy.com/" target="_blank" rel="noopener noreferrer">Abrir Draft Fantasy</a>
+            </div>
+          </div>
+
+          <div class="pl-card copilot-source-card" aria-live="polite">
+            <div>
+              <small>Estado de alineaciones probables</small>
+              <strong id="probableStatus">Sin alineación probable local</strong>
+              <span id="probableMeta">Probable no significa confirmado y no aporta puntos, precio ni posición.</span>
+            </div>
+            <div class="copilot-import-actions">
+              <input class="sr-only" id="probableFile" type="file" accept=".csv,text/csv" tabindex="-1" aria-label="CSV local de alineaciones probables de Fantasy Football Pundit">
+              <button class="pl-button primary" id="probableImport" type="button">Importar alineaciones</button>
+              <button class="pl-button danger" id="probableClear" type="button" disabled>Borrar alineaciones</button>
+              <a class="pl-button compact" href="https://www.fantasyfootballpundit.com/fantasy-premier-league-team-news/" target="_blank" rel="noopener noreferrer">Abrir fuente original</a>
+            </div>
+          </div>
+
+          <div class="model-tables">
+            <article class="pl-card model-table-card" aria-labelledby="ownModelTitle">
+              <div class="pl-card-head"><div><small>Modelo del proyecto · scoring FanTeam</small><h3 id="ownModelTitle">FanTeam Projection</h3></div><span class="pl-chip info" id="ownModelCount">0</span></div>
+              <div class="model-table-scroll" role="region" tabindex="0" aria-labelledby="ownModelTitle" aria-label="Tabla FanTeam desplazable horizontal y verticalmente">
+                <table class="model-table">
+                  <caption class="sr-only">Puntos esperados del modelo FanTeam para todos los jugadores filtrados</caption>
+                  <thead id="ownModelHead"></thead>
+                  <tbody id="ownModelBody"><tr><td class="model-table-empty">Preparando modelo…</td></tr></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="pl-card model-table-card" aria-labelledby="copilotModelTitle">
+              <div class="pl-card-head"><div><small>Archivo local · señal externa, no scoring final</small><h3 id="copilotModelTitle">FPL Copilot</h3></div><span class="pl-chip info" id="copilotModelCount">0</span></div>
+              <div class="model-table-scroll" role="region" tabindex="0" aria-labelledby="copilotModelTitle" aria-label="Tabla FPL Copilot desplazable horizontal y verticalmente">
+                <table class="model-table">
+                  <caption class="sr-only">Puntos esperados importados de FPL Copilot para todos los jugadores filtrados</caption>
+                  <thead id="copilotModelHead"></thead>
+                  <tbody id="copilotModelBody"><tr><td class="model-table-empty">Importa un archivo autorizado para mostrar la segunda tabla.</td></tr></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="pl-card model-table-card" aria-labelledby="consensusModelTitle">
+              <div class="pl-card-head"><div><small>FanTeam dominante · Draft opcional hasta 10% · Monte Carlo 10k</small><h3 id="consensusModelTitle">Consenso GW1</h3></div><span class="pl-chip info" id="consensusModelCount">0</span></div>
+              <div class="model-table-scroll" role="region" tabindex="0" aria-labelledby="consensusModelTitle" aria-label="Tabla de consenso GW1 desplazable horizontal y verticalmente">
+                <table class="model-table consensus-table">
+                  <caption class="sr-only">Percentiles normalizados y consenso GW1 para jugadores vinculados; Draft se usa solo cuando su match con FanTeam es seguro</caption>
+                  <thead id="consensusModelHead"></thead>
+                  <tbody id="consensusModelBody"><tr><td class="model-table-empty">Preparando consenso GW1…</td></tr></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+          <p class="copilot-usage-note"><strong>Uso local:</strong> los archivos permanecen en este navegador y la página no consulta ni raspa automáticamente Copilot, Draft o Fantasy Football Pundit. Todos los precios, posiciones, presupuesto, medias de proyección y scoring decisivo son FanTeam; Copilot y Draft aportan percentiles externos. La alineación probable es una señal GW1 separada: “probable” no da bonus ni equivale a confirmado; “alternative” solo reduce 0,35 el orden del XI y añade incertidumbre Monte Carlo, sin mover la media.</p>
+
+          <section class="pl-card consensus-builder" aria-labelledby="consensusSquadTitle">
+            <div class="pl-card-head consensus-builder-head">
+              <div><small>Precios, reglas y scoring FanTeam</small><h3 id="consensusSquadTitle">Plantilla Consenso GW1</h3></div>
+              <span class="pl-chip info" id="consensusSquadStatus">Preparando…</span>
+            </div>
+            <div class="consensus-builder-body" id="consensusSquadBody" aria-live="polite"><div class="empty-state"><strong>Preparando plantilla</strong>Calculando restricciones, XI y capitanía.</div></div>
+          </section>
+        </section>
+
+        <section class="lab-layout">
+          <div>
+            <div class="compare-header">
+              <div><h2>Comparación activa</h2><span class="pl-note" id="compareHint">Elige entre 2 y 4 jugadores.</span></div>
+              <div class="compare-actions">
+                <label class="sr-only" for="labGw">Jornada inicial</label>
+                <select class="pl-select" id="labGw"></select>
+                <button class="pl-button danger" id="clearComparison" type="button">Limpiar</button>
+              </div>
+            </div>
+            <div class="compare-grid" id="compareGrid" aria-live="polite"><div class="pl-card empty-state"><strong>Preparando comparador</strong>Cargando catálogo y proyecciones.</div></div>
+          </div>
+
+          <aside class="lab-side-stack" aria-label="Explorador y shortlist">
+            <section class="pl-card">
+              <div class="pl-card-head"><h2>Resultados</h2><span class="pl-chip info" id="resultCount">0</span></div>
+              <div class="search-results" id="searchResults"><div class="empty-state">Escribe un nombre o filtra por posición.</div></div>
+            </section>
+            <section class="pl-card">
+              <div class="pl-card-head"><h2>Mi shortlist</h2><span class="pl-chip info" id="shortlistCount">0</span></div>
+              <div class="pl-card-body shortlist-list" id="shortlistList"><div class="pl-note">Guarda candidatos para volver a ellos en este navegador.</div></div>
+            </section>
+            <section class="pl-card">
+              <div class="pl-card-head"><h2>Alternativas equivalentes</h2><span class="pl-chip info">misma posición</span></div>
+              <div class="pl-card-body alternatives-list" id="alternativesList"><div class="pl-note">Añade un jugador para descubrir opciones de precio parecido.</div></div>
+            </section>
+          </aside>
+        </section>
+
+        <section class="method-grid" aria-label="Cómo leer Player Lab">
+          <article class="pl-card method-card"><span>01 · PROYECCIÓN</span><h3>Mismo motor que el planificador</h3><p>GW, 3GW y 6GW reutilizan el modelo de precio, rol, confianza y dificultad del proyecto principal; no son puntos garantizados.</p></article>
+          <article class="pl-card method-card"><span>02 · REFERENCIA</span><h3>FPL como señal externa</h3><p>PPG, xG/90, selección y fichajes son referencias públicas FPL. Se muestran como contexto y no sustituyen precio ni scoring FanTeam.</p></article>
+          <article class="pl-card method-card"><span>03 · FRESCURA</span><h3>Origen visible</h3><p>Cada tarjeta indica si el precio es base, guardado o importado. Si falla la red, la página usa la última caché o un catálogo mínimo.</p></article>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div class="pl-toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="src/fanteam-projection.js"></script>
+  <script src="src/fanteam-wildcard.js"></script>
+  <script src="src/premier-data.js"></script>
+  <script src="src/fpl-copilot-import.js"></script>
+  <script src="src/draft-fantasy-import.js"></script>
+  <script src="src/probable-lineups-import.js"></script>
+  <script src="src/premier-consensus.js"></script>
+  <script src="src/premier-monte-carlo.js"></script>
+  <script src="src/premier-player-lab.js"></script>
+</body>
+</html>

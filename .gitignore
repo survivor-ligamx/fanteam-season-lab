@@ -6,3 +6,6 @@ node_modules/
 
 playwright-report/
 test-results/
+
+# Datos privados/locales generados; nunca se versionan.
+.local-data/
