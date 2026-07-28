@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radar Premier League 6GW · FanTeam Elite Lab</title>
+  <meta name="description" content="Compara el calendario de los clubes de Premier League durante las próximas seis jornadas para encontrar giros ofensivos y defensivos.">
+  <link rel="stylesheet" href="src/premier-pages.css?v=1">
+</head>
+<body data-page="radar">
+  <a class="skip-link" href="#mainContent">Saltar al contenido principal</a>
+  <div class="pl-shell">
+    <aside class="pl-sidebar">
+      <a class="pl-brand" href="index.html#week" aria-label="Volver a FanTeam Elite Lab">
+        <span class="pl-brand-mark" aria-hidden="true">FT</span>
+        <span class="pl-brand-copy"><small>Premier intelligence</small><strong>FanTeam <em>Elite</em> Lab</strong></span>
+      </a>
+      <nav class="pl-nav" aria-label="Herramientas Premier League">
+        <span class="pl-nav-label">Laboratorio</span>
+        <a href="index.html#week"><span class="pl-nav-icon" aria-hidden="true">←</span>Centro FanTeam</a>
+        <a href="premier-radar.html" aria-current="page"><span class="pl-nav-icon" aria-hidden="true">6W</span>Radar PL</a>
+        <a href="premier-player-lab.html"><span class="pl-nav-icon" aria-hidden="true">VS</span>Player Lab</a>
+        <a href="index.html#fixtures"><span class="pl-nav-icon" aria-hidden="true">FX</span>Partidos</a>
+        <a href="index.html#market"><span class="pl-nav-icon" aria-hidden="true">M</span>Mercado</a>
+      </nav>
+      <div class="pl-side-meta">
+        <small>Ventana de análisis</small>
+        <strong>6 jornadas</strong>
+        <small id="sideRadarGw">Desde GW1</small>
+      </div>
+    </aside>
+
+    <div class="pl-main">
+      <header class="pl-topbar">
+        <div class="pl-topbar-title"><small>Premier League · 2026/27</small><strong>Radar de clubes</strong></div>
+        <div class="pl-topbar-actions">
+          <span class="pl-status base" id="dataStatus" role="status"><i class="pl-status-dot" aria-hidden="true"></i><span>Preparando datos…</span></span>
+          <button class="pl-button" id="refreshRadar" type="button">Actualizar</button>
+        </div>
+      </header>
+
+      <main class="pl-content" id="mainContent" tabindex="-1">
+        <section class="pl-hero" aria-labelledby="radarTitle">
+          <div class="pl-hero-copy">
+            <span class="pl-eyebrow">Premier League · visión de 6GW</span>
+            <h1 id="radarTitle">Encuentra el próximo giro de calendario</h1>
+            <p>Ordena los 20 clubes por oportunidad ofensiva y defensiva, revisa localía, dificultad y forma reciente, y salta directo a los jugadores de cada equipo.</p>
+            <div class="pl-hero-actions">
+              <button class="pl-button primary" id="copyRadarLink" type="button">Copiar vista</button>
+              <a class="pl-button" href="premier-player-lab.html">Comparar jugadores</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="pl-card pl-toolbar" aria-label="Filtros del radar">
+          <div class="pl-field">
+            <label for="radarGw">Jornada inicial</label>
+            <select class="pl-select" id="radarGw"></select>
+          </div>
+          <div class="pl-field grow">
+            <label for="radarClub">Abrir un club</label>
+            <select class="pl-select" id="radarClub"><option value="">Mejor clasificado</option></select>
+          </div>
+          <div class="pl-field">
+            <label for="radarOrder">Ordenar por</label>
+            <select class="pl-select" id="radarOrder">
+              <option value="overall">Balance 6GW</option>
+              <option value="attack">Oportunidad ofensiva</option>
+              <option value="defense">Oportunidad defensiva</option>
+              <option value="next">Próxima jornada</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="pl-metrics" aria-label="Resumen del radar">
+          <article class="pl-card pl-metric"><span>Clubes analizados</span><strong id="clubsCovered">—</strong><small id="coverageLabel">Cargando catálogo</small></article>
+          <article class="pl-card pl-metric"><span>Mejor ataque 6GW</span><strong id="bestAttack">—</strong><small id="bestAttackScore">—</small></article>
+          <article class="pl-card pl-metric"><span>Mejor defensa 6GW</span><strong id="bestDefense">—</strong><small id="bestDefenseScore">—</small></article>
+          <article class="pl-card pl-metric"><span>Mejor próxima GW</span><strong id="bestNext">—</strong><small id="bestNextScore">—</small></article>
+        </section>
+
+        <section class="radar-layout">
+          <article class="pl-card">
+            <div class="pl-card-head"><h2>Ranking de calendario</h2><span class="pl-chip info" id="rankingWindow">GW1–GW6</span></div>
+            <div class="ranking-list" id="radarRanking" aria-live="polite"><div class="empty-state">Calculando los clubes…</div></div>
+          </article>
+          <article class="pl-card club-detail" id="clubDetail" aria-live="polite">
+            <div class="empty-state"><strong>Selecciona un club</strong>Verás su programa, señales y jugadores destacados.</div>
+          </article>
+        </section>
+
+        <section class="method-grid" aria-label="Cómo leer el radar">
+          <article class="pl-card method-card"><span>01 · CALENDARIO</span><h3>Ventaja, no predicción exacta</h3><p>El score convierte la dificultad local/visitante de cada partido en una escala 0–100 y pondera más las jornadas cercanas.</p></article>
+          <article class="pl-card method-card"><span>02 · CONTEXTO</span><h3>Forma y datos de plantilla</h3><p>Cuando hay datos FPL frescos, el radar añade señales agregadas de producción y portería a cero. Nunca inventa xG faltante.</p></article>
+          <article class="pl-card method-card"><span>03 · DECISIÓN</span><h3>Del club al jugador</h3><p>Usa el Radar para detectar el bloque de calendario y Player Lab para confirmar precio, minutos, proyección y riesgo individual.</p></article>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div class="pl-toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="src/premier-data.js"></script>
+  <script src="src/premier-radar.js"></script>
+</body>
+</html>
