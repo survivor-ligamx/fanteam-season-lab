@@ -66,7 +66,7 @@ import { createPlayerLabStatusRenderers } from './player-lab/status-renderers.js
   } = createPlayerLabSnapshots({
     state, Copilot, Draft, Probable, PublicSignals, $, actions: playerLabActions,
   });
-  const { cancelMonteCarloJob, monteCarloFallback, startMonteCarlo } = createPlayerLabMonteCarlo({
+  const { cancelMonteCarloJob, startMonteCarlo } = createPlayerLabMonteCarlo({
     state, MonteCarlo, actions: playerLabActions,
   });
   const { renderCopilotStatus, renderDraftStatus, renderProbableStatus } = createPlayerLabStatusRenderers({
