@@ -16,6 +16,13 @@ export default [
     },
   },
   {
+    files: ["src/premier-player-lab.js", "src/player-lab/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+    },
+  },
+  {
     files: ["worker/src/**/*.js", "scripts/**/*.mjs"],
     languageOptions: {
       ecmaVersion: "latest",
