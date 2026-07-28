@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Premier Player Lab | FanTeam Intelligence</title>
+  <meta name="description" content="Comparador local de proyecciones FanTeam y FPL Copilot.">
+  <style>
+    :root {
+      --ink: oklch(24% .035 255);
+      --muted: oklch(52% .028 255);
+      --paper: oklch(98% .008 255);
+      --surface: oklch(100% .006 255);
+      --line: oklch(90% .018 255);
+      --accent: oklch(58% .16 20);
+      --accent-soft: oklch(95% .035 20);
+      --teal: oklch(57% .12 180);
+      --teal-soft: oklch(94% .045 180);
+      --gold: oklch(66% .14 78);
+      --gold-soft: oklch(95% .04 78);
+      --danger: oklch(55% .17 25);
+      --shadow: 0 14px 36px oklch(26% .04 255 / .08);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body { margin: 0; color: var(--ink); background: var(--paper); font: 16px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select { font: inherit; }
+    a { color: var(--accent); }
+    .skip { position: absolute; left: -999px; top: 8px; }
+    .skip:focus { left: 12px; z-index: 10; padding: 10px 14px; background: var(--ink); color: var(--surface); border-radius: 8px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px clamp(18px, 4vw, 60px); border-bottom: 1px solid var(--line); background: var(--surface); }
+    .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--ink); color: var(--surface); font-weight: 900; letter-spacing: -.06em; }
+    .brand small, .eyebrow { display: block; color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .brand strong { display: block; font-size: 1.05rem; }
+    .back { color: var(--muted); font-weight: 750; text-decoration: none; }
+    .back:hover { color: var(--accent); }
+    main { width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding: 58px 0 80px; }
+    .intro { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); align-items: end; gap: 32px; margin-bottom: 34px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 760px; margin-bottom: 12px; font-size: clamp(2.4rem, 5vw, 5.4rem); line-height: .98; letter-spacing: -.075em; text-wrap: balance; }
+    .lede { max-width: 66ch; margin: 0; color: var(--muted); font-size: 1.08rem; }
+    .notice { padding: 18px 20px; border: 1px solid oklch(78% .09 78); border-radius: var(--radius); background: var(--gold-soft); }
+    .notice strong { display: block; margin-bottom: 4px; }
+    .notice p { margin: 0; color: oklch(39% .07 78); font-size: .92rem; }
+    .toolbar { position: sticky; top: 0; z-index: 4; display: grid; gap: 12px; padding: 16px; margin-bottom: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    .toolbar-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .field { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); padding: 9px 12px; }
+    .search { flex: 1 1 280px; }
+    .field:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .button { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 800; }
+    .button:hover { border-color: var(--accent); color: var(--accent); }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: var(--surface); }
+    .button.primary:hover { filter: brightness(.94); color: var(--surface); }
+    .button.subtle { background: var(--accent-soft); border-color: oklch(83% .06 20); color: var(--accent); }
+    .source-note { color: var(--muted); font-size: .86rem; }
+    .source-note b { color: var(--ink); }
+    .summary { display: flex; flex-wrap: wrap; gap: 10px 20px; color: var(--muted); font-size: .9rem; }
+    .summary b { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); }
+    .tab { position: relative; border: 0; padding: 13px 4px; margin-right: 18px; background: transparent; color: var(--muted); cursor: pointer; font-weight: 850; }
+    .tab.active { color: var(--ink); }
+    .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--accent); border-radius: 99px; }
+    .table-shell { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    table { width: 100%; min-width: 1020px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    caption { padding: 18px 20px 0; text-align: left; color: var(--muted); font-size: .9rem; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+    th { position: sticky; top: 0; z-index: 2; background: oklch(97% .012 255); color: var(--muted); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+    tbody tr:hover { background: oklch(98% .014 20); }
+    tbody tr:last-child td { border-bottom: 0; }
+    .player { font-weight: 850; }
+    .club { color: var(--muted); font-size: .84rem; }
+    .num { text-align: right; }
+    .score { color: var(--accent); font-size: 1.08rem; font-weight: 900; }
+    .score.teal { color: var(--teal); }
+    .pill { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: .76rem; font-weight: 850; }
+    .pill.teal { background: var(--teal-soft); color: oklch(39% .1 180); }
+    .pill.gold { background: var(--gold-soft); color: oklch(43% .09 78); }
+    .empty { padding: 72px 24px; text-align: center; }
+    .empty strong { display: block; margin-bottom: 8px; font-size: 1.2rem; }
+    .empty p { max-width: 48ch; margin: 0 auto; color: var(--muted); }
+    .hidden { display: none !important; }
+    footer { width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding: 20px 0 50px; color: var(--muted); font-size: .84rem; }
+    @media (max-width: 820px) {
+      .intro { grid-template-columns: 1fr; gap: 22px; }
+      main { padding-top: 36px; }
+      h1 { font-size: clamp(2.6rem, 13vw, 4.4rem); }
+      .topbar { align-items: flex-start; }
+      .back { display: none; }
+      .toolbar { position: static; }
+    }
+    @media (max-width: 560px) {
+      .topbar { padding: 14px 18px; }
+      main, footer { width: min(100% - 24px, 1500px); }
+      .toolbar-row > * { width: 100%; }
+      .toolbar-row .button { width: 100%; }
+      .tabs { overflow-x: auto; }
+      .tab { flex: 0 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Saltar al contenido</a>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Volver a FanTeam Intelligence">
+      <span class="mark" aria-hidden="true">FT</span>
+      <span><small>Season intelligence</small><strong>FanTeam Player Lab</strong></span>
+    </a>
+    <a class="back" href="index.html">Volver a la app</a>
+  </header>
+  <main id="content">
+    <section class="intro" aria-labelledby="title">
+      <div>
+        <span class="eyebrow">Proyecciones, sin humo</span>
+        <h1 id="title">Dos modelos. Una decisión más limpia.</h1>
+        <p class="lede">Compara la proyección ponderada de FanTeam con los expected points de FPL Copilot. La tabla vive en este navegador: sin proxy, scraping ni sincronización automática.</p>
+      </div>
+      <aside class="notice" role="note">
+        <strong>Importa el export real</strong>
+        <p>Sube el JSON o CSV autorizado desde tu equipo. No se inventan filas ni se publican datos de terceros sin importar.</p>
+      </aside>
+    </section>
+
+    <section class="toolbar" aria-label="Filtros y acciones">
+      <div class="toolbar-row">
+        <input class="field search" id="search" type="search" placeholder="Buscar jugador, club o alias..." aria-label="Buscar jugador, club o alias">
+        <select class="field" id="club" aria-label="Filtrar por club"><option value="">Todos los clubes</option></select>
+        <select class="field" id="position" aria-label="Filtrar por posición"><option value="">Todas las posiciones</option><option value="GK">GK</option><option value="DEF">DEF</option><option value="MID">MID</option><option value="FWD">FWD</option></select>
+        <select class="field" id="gameweek" aria-label="Filtrar por jornada"><option value="">Todas las jornadas</option></select>
+        <label class="field" for="price">Precio máx. <input id="price" type="number" min="0" step="0.1" placeholder="sin límite" style="width:88px;border:0;outline:0;background:transparent"></label>
+      </div>
+      <div class="toolbar-row">
+        <button class="button primary" id="importButton" type="button">Importar JSON o CSV</button>
+        <input id="file" type="file" accept=".json,.csv,application/json,text/csv" hidden>
+        <button class="button subtle" id="clearButton" type="button">Borrar datos locales</button>
+        <span class="source-note" id="status" aria-live="polite"><b>0 registros</b> cargados localmente</span>
+      </div>
+      <div class="summary" aria-live="polite">
+        <span>Coincidencias: <b id="visibleCount">0</b></span>
+        <span>Última importación: <b id="importedAt">Nunca</b></span>
+        <span>Origen: <b id="origin">Sin datos</b></span>
+      </div>
+    </section>
+
+    <section aria-label="Tablas de proyección">
+      <div class="tabs" role="tablist" aria-label="Modelo de proyección">
+        <button class="tab active" id="fanTab" role="tab" aria-selected="true" aria-controls="fanPanel">FanTeam Projection</button>
+        <button class="tab" id="copilotTab" role="tab" aria-selected="false" aria-controls="copilotPanel">FPL Copilot</button>
+      </div>
+      <div id="fanPanel" role="tabpanel" aria-labelledby="fanTab">
+        <div class="table-shell">
+          <table>
+            <caption>Scoring FanTeam y horizonte ponderado, no comparable como delta directo contra Copilot.</caption>
+            <thead><tr><th>Jugador</th><th>Club</th><th>Pos.</th><th>GW origen</th><th class="num">Precio</th><th class="num">GW1</th><th class="num">GW3</th><th class="num">GW6</th><th>Estado</th></tr></thead>
+            <tbody id="fanBody"></tbody>
+          </table>
+          <div class="empty" id="fanEmpty"><strong>Aún no hay proyecciones FanTeam</strong><p>Importa un archivo con campos como <code>name</code>, <code>club</code>, <code>pos</code>, <code>price</code>, <code>gw1</code>, <code>gw3</code> y <code>gw6</code>.</p></div>
+        </div>
+      </div>
+      <div id="copilotPanel" class="hidden" role="tabpanel" aria-labelledby="copilotTab">
+        <div class="table-shell">
+          <table>
+            <caption>Expected points FPL Copilot, suma directa por jornada FPL.</caption>
+            <thead><tr><th>Jugador</th><th>Club</th><th>Pos.</th><th>GW origen</th><th class="num">Precio</th><th class="num">GW1</th><th class="num">GW2</th><th class="num">GW3</th><th>Actualizado</th></tr></thead>
+            <tbody id="copilotBody"></tbody>
+          </table>
+          <div class="empty" id="copilotEmpty"><strong>Aún no hay datos de FPL Copilot</strong><p>Importa el export autorizado. Se guardará únicamente en <code>localStorage</code>, nunca en el servidor.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>Emparejamiento previsto: FPL ID, <code>fpl_code</code> y alias único más club. Los metadatos de fecha, cobertura, obsolescencia y jornada de origen se conservan al importar.</footer>
+  <script>
+    (() => {
+      const KEY = 'fanteam-player-lab-v1';
+      const state = { records: [], model: 'fan', filters: { search: '', club: '', position: '', gameweek: '', price: '' } };
+      const $ = (id) => document.getElementById(id);
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+      const number = (value) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
+      const text = (value) => String(value ?? '').trim();
+      const first = (object, keys) => { for (const key of keys) if (object[key] !== undefined && object[key] !== null && object[key] !== '') return object[key]; return ''; };
+      const parseCsv = (source) => {
+        const rows = []; let row = []; let cell = ''; let quoted = false;
+        for (let i = 0; i < source.length; i += 1) { const char = source[i], next = source[i + 1]; if (char === '"' && quoted && next === '"') { cell += '"'; i += 1; } else if (char === '"') quoted = !quoted; else if (char === ',' && !quoted) { row.push(cell); cell = ''; } else if ((char === '\n' || char === '\r') && !quoted) { if (char === '\r' && next === '\n') i += 1; row.push(cell); if (row.some((value) => value.trim() !== '')) rows.push(row); row = []; cell = ''; } else cell += char; }
+        if (cell || row.length) { row.push(cell); rows.push(row); }
+        const headers = (rows.shift() || []).map((header) => header.trim().toLowerCase());
+        return rows.map((values) => Object.fromEntries(headers.map((header, i) => [header, values[i] ?? ''])));
+      };
+      const normalize = (raw, index) => {
+        const item = raw || {};
+        const club = text(first(item, ['club', 'team', 'team_code', 'club_code']));
+        const name = text(first(item, ['name', 'player', 'player_name', 'web_name', 'alias']));
+        const position = text(first(item, ['pos', 'position', 'element_type'])).toUpperCase();
+        const model = text(first(item, ['model', 'source', 'provider'])) .toLowerCase().includes('copilot') || item.expected_points !== undefined || item.xpts !== undefined ? 'copilot' : 'fan';
+        const gw = number(first(item, ['gameweek', 'gw', 'gw_origin', 'origin_gw']));
+        return { id: text(first(item, ['fpl_id', 'id', 'player_id'])), fplCode: text(first(item, ['fpl_code', 'code'])), alias: text(first(item, ['alias', 'web_name', 'surname'])), name, club, position, price: number(first(item, ['price', 'now_cost', 'cost'])), gwOrigin: gw, model, fan: { gw1: number(first(item, ['fan_gw1', 'projection_gw1', 'gw1', 'projection'])), gw3: number(first(item, ['fan_gw3', 'projection_gw3', 'gw3'])), gw6: number(first(item, ['fan_gw6', 'projection_gw6', 'gw6'])), status: text(first(item, ['status', 'availability'])) }, copilot: { gw1: number(first(item, ['copilot_gw1', 'xpts_gw1', 'expected_gw1', 'expected_points', 'xpts'])), gw2: number(first(item, ['copilot_gw2', 'xpts_gw2', 'expected_gw2'])), gw3: number(first(item, ['copilot_gw3', 'xpts_gw3', 'expected_gw3'])), updatedAt: text(first(item, ['updated_at', 'updatedAt', 'date', 'as_of'])) }, index };
+      };
+      const normalizePayload = (payload) => {
+        if (Array.isArray(payload)) return payload;
+        if (payload && Array.isArray(payload.records)) return payload.records;
+        if (payload && Array.isArray(payload.players)) return payload.players;
+        if (payload && (payload.fanTeam || payload.fplCopilot)) {
+          const fan = Array.isArray(payload.fanTeam) ? payload.fanTeam.map((item) => ({ ...item, model: 'fan' })) : [];
+          const copilot = Array.isArray(payload.fplCopilot) ? payload.fplCopilot.map((item) => ({ ...item, model: 'copilot' })) : [];
+          return [...fan, ...copilot];
+        }
+        return [];
+      };
+      const format = (value) => value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toFixed(1) : escapeHtml(value);
+      const unique = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es'));
+      const current = () => state.records.filter((record) => {
+        const f = state.filters; const haystack = `${record.name} ${record.alias} ${record.club} ${record.id} ${record.fplCode}`.toLowerCase();
+        return (!f.search || haystack.includes(f.search.toLowerCase())) && (!f.club || record.club === f.club) && (!f.position || record.position === f.position) && (!f.price || (record.price !== null && record.price <= Number(f.price))) && (!f.gameweek || record.gwOrigin === Number(f.gameweek));
+      });
+      const render = () => {
+        const rows = current().filter((record) => record.model === state.model); $('visibleCount').textContent = rows.length; $('status').innerHTML = `<b>${state.records.length} registros</b> cargados localmente`;
+        $('fanBody').innerHTML = state.model === 'fan' ? rows.map((r) => `<tr><td><span class="player">${escapeHtml(r.name || r.alias || 'Sin nombre')}</span><br><span class="club">${escapeHtml(r.id || r.fplCode || 'ID pendiente')}</span></td><td>${escapeHtml(r.club || '—')}</td><td><span class="pill">${escapeHtml(r.position || '—')}</span></td><td>GW${format(r.gwOrigin)}</td><td class="num">${format(r.price)}</td><td class="num score">${format(r.fan.gw1)}</td><td class="num score">${format(r.fan.gw3)}</td><td class="num score">${format(r.fan.gw6)}</td><td>${escapeHtml(r.fan.status || 'Disponible')}</td></tr>`).join('') : '';
+        $('copilotBody').innerHTML = state.model === 'copilot' ? rows.map((r) => `<tr><td><span class="player">${escapeHtml(r.name || r.alias || 'Sin nombre')}</span><br><span class="club">${escapeHtml(r.id || r.fplCode || 'ID pendiente')}</span></td><td>${escapeHtml(r.club || '—')}</td><td><span class="pill teal">${escapeHtml(r.position || '—')}</span></td><td>GW${format(r.gwOrigin)}</td><td class="num">${format(r.price)}</td><td class="num score teal">${format(r.copilot.gw1)}</td><td class="num score teal">${format(r.copilot.gw2)}</td><td class="num score teal">${format(r.copilot.gw3)}</td><td>${escapeHtml(r.copilot.updatedAt || '—')}</td></tr>`).join('') : '';
+        $('fanEmpty').classList.toggle('hidden', state.model !== 'fan' || rows.length > 0); $('copilotEmpty').classList.toggle('hidden', state.model !== 'copilot' || rows.length > 0);
+      };
+      const setFilters = () => { state.filters.search = $('search').value; state.filters.club = $('club').value; state.filters.position = $('position').value; state.filters.gameweek = $('gameweek').value; state.filters.price = $('price').value; render(); };
+      const fillFilters = () => { const oldClub = $('club').value, oldGw = $('gameweek').value; $('club').innerHTML = '<option value="">Todos los clubes</option>' + unique(state.records.map((r) => r.club)).map((club) => `<option value="${escapeHtml(club)}">${escapeHtml(club)}</option>`).join(''); $('gameweek').innerHTML = '<option value="">Todas las jornadas</option>' + unique(state.records.map((r) => r.gwOrigin).filter(Boolean)).map((gw) => `<option value="${gw}">GW${gw}</option>`).join(''); $('club').value = oldClub; $('gameweek').value = oldGw; };
+      const save = (origin) => { localStorage.setItem(KEY, JSON.stringify({ records: state.records, importedAt: new Date().toISOString(), origin })); $('importedAt').textContent = new Date().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }); $('origin').textContent = origin; };
+      const load = () => { try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && Array.isArray(saved.records)) { state.records = saved.records; $('importedAt').textContent = saved.importedAt ? new Date(saved.importedAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : 'Local'; $('origin').textContent = saved.origin || 'Importación local'; } } catch (error) { localStorage.removeItem(KEY); } fillFilters(); render(); };
+      $('importButton').addEventListener('click', () => $('file').click());
+      $('file').addEventListener('change', async (event) => { const file = event.target.files[0]; if (!file) return; try { const raw = await file.text(); const parsed = file.name.toLowerCase().endsWith('.csv') ? parseCsv(raw) : normalizePayload(JSON.parse(raw)); const records = parsed.map(normalize).filter((record) => record.name || record.id || record.fplCode); if (!records.length) throw new Error('No se encontraron registros válidos'); state.records = records; save(file.name); fillFilters(); render(); } catch (error) { $('status').textContent = `Importación rechazada: ${error.message}`; } finally { event.target.value = ''; } });
+      $('clearButton').addEventListener('click', () => { if (!confirm('¿Borrar todos los datos locales de Player Lab?')) return; state.records = []; localStorage.removeItem(KEY); $('importedAt').textContent = 'Nunca'; $('origin').textContent = 'Sin datos'; fillFilters(); render(); });
+      ['search', 'club', 'position', 'gameweek', 'price'].forEach((id) => $(id).addEventListener('input', setFilters));
+      const activateTab = (model) => { state.model = model; const fan = model === 'fan'; $('fanTab').classList.toggle('active', fan); $('copilotTab').classList.toggle('active', !fan); $('fanTab').setAttribute('aria-selected', fan); $('copilotTab').setAttribute('aria-selected', !fan); $('fanPanel').classList.toggle('hidden', !fan); $('copilotPanel').classList.toggle('hidden', fan); render(); };
+      $('fanTab').addEventListener('click', () => activateTab('fan')); $('copilotTab').addEventListener('click', () => activateTab('copilot')); load();
+    })();
+  </script>
+</body>
+</html>
