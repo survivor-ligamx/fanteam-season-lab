@@ -10,6 +10,10 @@ test("index uses external CSS and JavaScript assets", async () => {
   assert.doesNotMatch(html, /<scriptsrc=/i);
   assert.doesNotMatch(html, /<style(?:\s|>)/i);
   assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)(?![^>]*\btype=["']application\/json["'])[^>]*>\s*\S/i);
+
+  const storagePosition = html.indexOf('src/season-storage.js');
+  const appPosition = html.indexOf('src/app.js?v=1');
+  assert.ok(storagePosition >= 0 && appPosition > storagePosition, "app.js must load after its dependencies");
   assert.ok((await stat(new URL("../../src/app.css", import.meta.url))).size > 1_000);
   assert.ok((await stat(new URL("../../src/app.js", import.meta.url))).size > 1_000);
 });
