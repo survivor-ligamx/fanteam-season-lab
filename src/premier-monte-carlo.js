@@ -11,6 +11,7 @@
   const MAX_PLAYERS_PER_CLUB = 3;
   const ALTERNATIVE_LINEUP_PENALTY = 0.35;
   const ALTERNATIVE_SIGMA_INCREMENT = 2;
+  const MISSING_COPILOT_SIGMA_INCREMENT = 2.5;
   const BASE_MAX_SIGMA = 24;
   const POSITION_QUOTA = Object.freeze({ GK: 2, DEF: 5, MID: 5, FWD: 3 });
   const FORMATIONS = Object.freeze([
@@ -62,6 +63,7 @@
     const base = { GK: 8, DEF: 9.5, MID: 10.5, FWD: 11.5 }[row?.player?.pos] || 10;
     const disagreement = clamp(finite(row?.disagreement) ?? 0, 0, 100);
     let uncertainty = base + 0.14 * disagreement;
+    if (row?.copilotSignal == null) uncertainty += MISSING_COPILOT_SIGMA_INCREMENT;
     if (!row?.draftUsed) uncertainty += 1;
     if (row?.sourcePositionMismatch) uncertainty += 1.5;
     const bounded = clamp(uncertainty, 6, BASE_MAX_SIGMA);
@@ -670,6 +672,7 @@
     DEFAULT_CANDIDATES,
     DEFAULT_SCENARIOS,
     DOWNSIDE_WEIGHT,
+    MISSING_COPILOT_SIGMA_INCREMENT,
     VERSION,
     createPayload,
     simulate,

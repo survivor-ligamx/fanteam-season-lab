@@ -6,8 +6,11 @@
   const BUDGET = 100;
   const MAX_PLAYERS_PER_CLUB = 3;
   const POSITION_QUOTA = Object.freeze({ GK: 2, DEF: 5, MID: 5, FWD: 3 });
-  // Draft entra con un máximo nominal del 10%. Al faltar, los otros pesos
-  // recuperan exactamente la mezcla histórica 60/25/15 mediante renormalización.
+  // Copilot y Draft son señales opcionales. Los pesos disponibles siempre se
+  // renormalizan: con Copilot y sin Draft se conserva exactamente 60/25/15;
+  // sin archivos locales, FanTeam y contexto forman un fallback público 80/20.
+  // Draft permanece limitado al 10% incluso cuando Copilot no está disponible.
+  const FALLBACK_WEIGHTS = Object.freeze({ fanteam: 0.80, context: 0.20 });
   const WEIGHTS = Object.freeze({ fanteam: 0.54, copilot: 0.225, draft: 0.10, context: 0.135 });
 
   function finite(value) {
@@ -124,10 +127,32 @@
     }
   }
 
-  function agreementLabel(difference) {
+  function agreementLabel(difference, opinionCount) {
+    if (opinionCount < 2) return "sin contraste";
     if (difference <= 12) return "alto";
     if (difference <= 25) return "medio";
     return "bajo";
+  }
+
+  function effectiveWeights(copilotSignal, draftSignal) {
+    const hasCopilot = finite(copilotSignal) != null;
+    const hasDraft = finite(draftSignal) != null;
+    if (hasCopilot) {
+      if (hasDraft) return { ...WEIGHTS };
+      const total = WEIGHTS.fanteam + WEIGHTS.copilot + WEIGHTS.context;
+      return {
+        fanteam: WEIGHTS.fanteam / total,
+        copilot: WEIGHTS.copilot / total,
+        context: WEIGHTS.context / total,
+      };
+    }
+    const draft = hasDraft ? WEIGHTS.draft : 0;
+    const remaining = 1 - draft;
+    return {
+      fanteam: remaining * FALLBACK_WEIGHTS.fanteam,
+      ...(hasDraft ? { draft } : {}),
+      context: remaining * FALLBACK_WEIGHTS.context,
+    };
   }
 
   function create(options) {
@@ -164,7 +189,7 @@
         const copilotPoints = finite(copilotPointsAt(copilot, gameweek));
         const draftPoints = finite(draftPointsAt(draft, gameweek));
         const price = finite(player.price);
-        if (!copilot || fanteamPoints == null || copilotPoints == null || price == null || price <= 0) continue;
+        if (fanteamPoints == null || price == null || price <= 0) continue;
         const scheduled = fixture(player, gameweek);
         const playerAvailability = availability(player);
         const match = matchFor(odds, player, scheduled, gameweek);
@@ -174,7 +199,9 @@
           player,
           copilot,
           draft,
-          sourcePositionMismatch: copilot.position !== player.pos,
+          sourcePositionMismatch: Boolean(
+            copilot?.position && copilot.position !== player.pos,
+          ),
           price,
           fanteamPoints,
           copilotPoints,
@@ -198,23 +225,22 @@
       sourceSignals(rows, "copilotPoints", "copilotSignal");
       sourceSignals(rows, "draftPoints", "draftSignal", 5);
       for (const row of rows) {
-        const sources = [
-          ["fanteam", row.fanteamSignal],
-          ["copilot", row.copilotSignal],
-          ["draft", row.draftSignal],
-          ["context", row.contextSignal],
-        ].filter(([, signal]) => finite(signal) != null);
-        const weightTotal = sources.reduce((total, [key]) => total + WEIGHTS[key], 0);
-        row.effectiveWeights = Object.fromEntries(sources.map(([key]) => [key, WEIGHTS[key] / weightTotal]));
-        row.baseScore = sources.reduce((total, [key, signal]) => (
-          total + WEIGHTS[key] * signal
-        ), 0) / weightTotal;
+        const signals = {
+          fanteam: row.fanteamSignal,
+          copilot: row.copilotSignal,
+          draft: row.draftSignal,
+          context: row.contextSignal,
+        };
+        row.effectiveWeights = effectiveWeights(row.copilotSignal, row.draftSignal);
+        row.baseScore = Object.entries(row.effectiveWeights).reduce((total, [key, weight]) => (
+          total + weight * signals[key]
+        ), 0);
         row.score = clamp(row.baseScore * row.availability.multiplier, 0, 100);
         const opinions = [row.fanteamSignal, row.copilotSignal, row.draftSignal]
           .map(finite)
           .filter((signal) => signal != null);
         row.disagreement = Math.max(...opinions) - Math.min(...opinions);
-        row.agreement = agreementLabel(row.disagreement);
+        row.agreement = agreementLabel(row.disagreement, opinions.length);
         row.eligible = Boolean(row.fixture) && !row.availability.hardOut;
         row.draftUsed = row.draftSignal != null;
         const percentage = (key) => `${(100 * (row.effectiveWeights[key] || 0)).toFixed(1).replace(/\.0$/, "")}%`;
@@ -224,10 +250,20 @@
         const positionNote = row.sourcePositionMismatch
           ? `; Copilot lo clasifica ${row.copilot.position} y FanTeam ${row.player.pos}`
           : "";
-        const draftNote = row.draftUsed
-          ? `, Draft P${Math.round(row.draftSignal)} (${percentage("draft")})`
-          : "";
-        row.explanation = `FanTeam P${Math.round(row.fanteamSignal)} (${percentage("fanteam")}), Copilot P${Math.round(row.copilotSignal)} (${percentage("copilot")})${draftNote} y contexto ${Math.round(row.contextSignal)} (${percentage("context")}); acuerdo ${row.agreement}${risk}${positionNote}.`;
+        const sourceNotes = [
+          `FanTeam P${Math.round(row.fanteamSignal)} (${percentage("fanteam")})`,
+        ];
+        if (row.copilotSignal != null) {
+          sourceNotes.push(`Copilot P${Math.round(row.copilotSignal)} (${percentage("copilot")})`);
+        }
+        if (row.draftUsed) {
+          sourceNotes.push(`Draft P${Math.round(row.draftSignal)} (${percentage("draft")})`);
+        }
+        sourceNotes.push(`contexto ${Math.round(row.contextSignal)} (${percentage("context")})`);
+        const agreementNote = row.agreement === "sin contraste"
+          ? "sin contraste externo"
+          : `acuerdo ${row.agreement}`;
+        row.explanation = `${sourceNotes.join(", ")}; ${agreementNote}${risk}${positionNote}.`;
       }
       rows.sort((first, second) => second.score - first.score || first.player.name.localeCompare(second.player.name, "es"));
       rows.forEach((row, index) => { row.rank = index + 1; });

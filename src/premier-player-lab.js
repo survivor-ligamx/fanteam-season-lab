@@ -1060,12 +1060,18 @@
     const probableBadge = probableLabel
       ? `<span class="pl-chip ${row.probableLineupRole === "alternative" ? "medium" : "info"}" title="Predicción local separada; no cambia puntos, precio, posición ni disponibilidad confirmada">${esc(probableLabel)}</span>`
       : "";
+    const copilotCell = row.copilotSignal == null
+      ? '<td title="Sin match Copilot local; el consenso renormaliza las señales disponibles">—</td>'
+      : `<td title="Copilot GW1 ${row.copilotPoints.toFixed(2)}; percentil normalizado por posición, precio y valor">${Math.round(row.copilotSignal)}</td>`;
+    const agreementDetail = row.agreement === "sin contraste"
+      ? "sin contraste externo"
+      : `acuerdo ${row.agreement}`;
     return `<tr>
-      <td>${tablePlayer(player, player.name, `${player.club} · acuerdo ${row.agreement}`)}</td>
+      <td>${tablePlayer(player, player.name, `${player.club} · ${agreementDetail}`)}</td>
       <td>${esc(player.pos)}</td>
       <td title="Precio FanTeam usado por el constructor">${player.price.toFixed(1)}M FT</td>
       <td title="FanTeam GW1 ${row.fanteamPoints.toFixed(2)}; percentil normalizado por posición, precio y valor">${Math.round(row.fanteamSignal)}</td>
-      <td title="Copilot GW1 ${row.copilotPoints.toFixed(2)}; percentil normalizado por posición, precio y valor">${Math.round(row.copilotSignal)}</td>
+      ${copilotCell}
       <td title="${row.draftUsed ? `Draft GW1 ${row.draftPoints.toFixed(2)}; percentil por posición y precio FanTeam` : "Sin match Draft seguro; pesos restantes renormalizados"}">${row.draftUsed ? Math.round(row.draftSignal) : "—"}</td>
       <td title="Calendario, cuotas disponibles y disponibilidad estructurada">${Math.round(row.contextSignal)}</td>
       <td title="${esc(row.explanation)}"><strong>${row.score.toFixed(1)}</strong></td>
@@ -1094,12 +1100,12 @@
       : `<tr><td class="model-table-empty" colspan="${gameweeks.length + 4}">${state.copilot ? "No hay jugadores Copilot para estos filtros." : "Importa un JSON/CSV autorizado para mostrar la segunda tabla completa."}</td></tr>`;
 
     const consensusRows = sharedConsensusRows();
-    $("#consensusModelCount").textContent = state.copilot
+    $("#consensusModelCount").textContent = consensusRows.length
       ? `${consensusRows.length} consensos`
-      : "sin archivo";
+      : "sin consenso";
     $("#consensusModelBody").innerHTML = consensusRows.length
       ? consensusRows.map(consensusModelRow).join("")
-      : `<tr><td class="model-table-empty" colspan="9">${state.copilot ? "No hay coincidencias completas FanTeam + Copilot para estos filtros." : "Carga el archivo local de Copilot para calcular el consenso GW1."}</td></tr>`;
+      : '<tr><td class="model-table-empty" colspan="9">No hay jugadores FanTeam elegibles para estos filtros.</td></tr>';
   }
 
   function consensusPlayerItem(player, role = "") {
@@ -1122,7 +1128,7 @@
     const body = $("#consensusSquadBody");
     const result = state.consensus;
     if (!result?.squad) {
-      const warnings = result?.warnings?.join(" · ") || "Carga un archivo Copilot vinculado para construir la plantilla.";
+      const warnings = result?.warnings?.join(" · ") || "No hay suficientes jugadores FanTeam elegibles para construir la plantilla.";
       status.className = "pl-chip hard";
       status.textContent = "Sin plantilla";
       body.innerHTML = `<div class="empty-state"><strong>No se pudo construir un equipo completo</strong>${esc(warnings)}${result?.rows?.length ? ` · ${result.rows.length} consensos disponibles.` : ""}</div>`;
@@ -1156,6 +1162,7 @@
       : Number(player.id) === Number(best.vice.id) ? "VC" : "";
     const remaining = result.budget - result.squad.cost;
     const draftCoverage = result.rows.filter((row) => row.draftUsed).length;
+    const copilotCoverage = result.rows.filter((row) => row.copilotSignal != null).length;
     const monteCarlo = result.monteCarlo || { status: "idle" };
     const simulationComplete = monteCarlo.status === "complete";
     const simulationRunning = monteCarlo.status === "running";
@@ -1170,7 +1177,7 @@
       <div><span>Monte Carlo</span><strong>${simulationRunning ? "Simulando…" : "Base segura"}</strong></div>
       <div><span>Escenarios previstos</span><strong>${formatCount(monteCarlo.scenarioCount || MonteCarlo.DEFAULT_SCENARIOS)}</strong></div>`;
     const monteCarloExplanation = simulationComplete
-      ? ` Monte Carlo evaluó ${formatCount(monteCarlo.scenarioCount)} escenarios reproducibles sobre ${monteCarlo.candidateCount} plantillas legales y eligió por media menos 25% de la caída hasta P10. El XI se fijó antes de simular; la incertidumbre combina desacuerdo entre fuentes y shocks globales, de club y jugador, con +2 de sigma únicamente para una alternativa prevista. La distribución no se recorta para conservar su media. Sus P10/P50/P90 son índices de sensibilidad, no puntos FanTeam ni probabilidades calibradas.`
+      ? ` Monte Carlo evaluó ${formatCount(monteCarlo.scenarioCount)} escenarios reproducibles sobre ${monteCarlo.candidateCount} plantillas legales y eligió por media menos 25% de la caída hasta P10. El XI se fijó antes de simular; la incertidumbre combina desacuerdo y cobertura ausente de señales opcionales con shocks globales, de club y jugador, y añade +2 de sigma únicamente para una alternativa prevista. La distribución no se recorta para conservar su media. Sus P10/P50/P90 son índices de sensibilidad, no puntos FanTeam ni probabilidades calibradas.`
       : simulationRunning
         ? " Monte Carlo está evaluando la plantilla determinista en segundo plano; mientras termina se conserva una opción FanTeam válida."
         : " Monte Carlo no estuvo disponible, por lo que se conserva el óptimo determinista seguro.";
@@ -1199,7 +1206,7 @@
         <div class="consensus-bench-group"><small>Jugadores de campo · orden 1–3</small>${benchOutfield.map((player, index) => consensusPlayerItem(player, `B${index + 1}`)).join("")}</div>
       </aside>
     </div>
-    <div class="consensus-explanation"><strong>Cómo se construyó:</strong> precio, presupuesto, posición, XI, C/VC y puntuación de partido son siempre FanTeam. Cada opinión se convierte en percentiles por posición, banda de precio FanTeam y valor. FanTeam conserva el mayor peso; Draft aporta como máximo 10% únicamente con match seguro y, cuando falta, se renormaliza exactamente la mezcla anterior 60% FanTeam, 25% Copilot y 15% contexto. Ninguna fuente externa aporta precio ni puntos directos al total FanTeam. La señal de Fantasy Football Pundit permanece separada: “probable” es informativo y no recibe bonus; “alternative” resta solo ${ALTERNATIVE_LINEUP_PENALTY.toFixed(2)} al ordenar el XI y eleva sigma sin alterar la media. El optimizador respeta 2 GK, 5 DEF, 5 MID, 3 FWD, máximo tres por club y 100M FanTeam. Cobertura: ${result.rows.length} jugadores con FanTeam + Copilot en GW1; ${draftCoverage} incorporan también Draft.${monteCarloExplanation}</div>`;
+    <div class="consensus-explanation"><strong>Cómo se construyó:</strong> precio, presupuesto, posición, XI, C/VC y puntuación de partido son siempre FanTeam. La señal FanTeam se percentila contra el catálogo completo; cada señal externa usa únicamente su cobertura vinculada de forma segura. FanTeam conserva el mayor peso y Draft permanece limitado al 10%. Los pesos presentes se renormalizan: con Copilot y sin Draft se conserva 60% FanTeam, 25% Copilot y 15% contexto; sin archivos externos, el fallback público usa 80% FanTeam y 20% contexto. Ninguna fuente externa aporta precio ni puntos directos al total FanTeam. La señal de Fantasy Football Pundit permanece separada: “probable” es informativo y no recibe bonus; “alternative” resta solo ${ALTERNATIVE_LINEUP_PENALTY.toFixed(2)} al ordenar el XI y eleva sigma sin alterar la media. El optimizador respeta 2 GK, 5 DEF, 5 MID, 3 FWD, máximo tres por club y 100M FanTeam. Cobertura: ${result.rows.length} jugadores con FanTeam + contexto en GW1; ${copilotCoverage} incorporan Copilot y ${draftCoverage} incorporan Draft.${monteCarloExplanation}</div>`;
   }
 
   function searchResult(player) {
