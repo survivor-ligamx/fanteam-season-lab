@@ -13,7 +13,11 @@
     "test:e2e": "playwright test",
     "test:production": "playwright test --config=playwright.production.config.mjs",
     "test:e2e:install": "playwright install chromium",
-    "test:all": "npm test && npm run test:e2e"
+    "test:all": "npm test && npm run test:e2e",
+    "lint": "npx --yes eslint@9.32.0 \"src/**/*.js\" \"worker/src/**/*.js\" \"scripts/**/*.mjs\"",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "npx --yes prettier@3.6.2 --write \"**/*.{js,mjs,json,md,yml,yaml,css,html}\"",
+    "format:check": "npx --yes prettier@3.6.2 --check \"**/*.{js,mjs,json,md,yml,yaml,css,html}\""
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
