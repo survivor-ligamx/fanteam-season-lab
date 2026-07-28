@@ -1,15 +1,18 @@
 import fs from "node:fs";
 
-const html = fs.readFileSync("index.html", "utf8");
-const match = html.match(/const PLAYERS\s*=\s*(\[[\s\S]*?\]);const FIXTURES/);
-if (!match) throw new Error("PLAYERS catalog not found in index.html");
+const catalogSources = ["index.html", "src/app.js"]
+  .filter((path) => fs.existsSync(path))
+  .map((path) => fs.readFileSync(path, "utf8"));
+const source = catalogSources.join("\n");
+const match = source.match(/const PLAYERS\s*=\s*(\[[\s\S]*?\]);const FIXTURES/);
+if (!match) throw new Error("PLAYERS catalog not found in frontend sources");
 const players = Function(`return (${match[1]})`)();
-const allowedClubs = new Set(["ARS","AVL","BHA","BOU","BRE","CHE","CRY","CVC","EVE","FUL","HUL","IPS","LEE","LIV","MCI","MUN","NEW","NFO","SUN","TOT"]);
-const allowedPositions = new Set(["GK","DEF","MID","FWD"]);
+const allowedClubs = new Set(["ARS", "AVL", "BHA", "BOU", "BRE", "CHE", "CRY", "CVC", "EVE", "FUL", "HUL", "IPS", "LEE", "LIV", "MCI", "MUN", "NEW", "NFO", "SUN", "TOT"]);
+const allowedPositions = new Set(["GK", "DEF", "MID", "FWD"]);
 const ids = new Set();
 const identities = new Set();
 const failures = [];
-const normalize = (value) => String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 for (const player of players) {
   if (ids.has(player.id)) failures.push(`duplicate id ${player.id}`);
   ids.add(player.id);
@@ -23,7 +26,7 @@ for (const player of players) {
 }
 if (players.length !== 580) failures.push(`expected 580 players, got ${players.length}`);
 if (failures.length) {
-  console.error(failures.join("\\n"));
+  console.error(failures.join("\n"));
   process.exit(1);
 }
 console.log(`catalog ok: ${players.length} players, ${ids.size} ids, ${identities.size} identities`);
