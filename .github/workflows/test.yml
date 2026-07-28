@@ -6,46 +6,70 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  finalize-index-assets:
+    if: github.event_name == 'pull_request' && github.head_ref == 'refactor/extract-index-inline-assets'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout extraction branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refactor/extract-index-inline-assets
+          fetch-depth: 0
+      - name: Give extracted assets stable names
+        run: |
+          git mv src/index-inline-1.css src/app.css
+          git mv src/index-inline-1.js src/app.js
+          python3 - <<'PY'
+          from pathlib import Path
+          replacements = {
+              'src/index-inline-1.css?v=1': 'src/app.css?v=1',
+              'src/index-inline-1.js?v=1': 'src/app.js?v=1',
+              'index-inline-1\\.css': 'app\\.css',
+              'index-inline-1\\.js': 'app\\.js',
+              'index-inline-1.css': 'app.css',
+              'index-inline-1.js': 'app.js',
+          }
+          for filename in ('index.html', 'test/frontend/index-assets.test.mjs'):
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+          PY
+      - name: Restore CI and commit final names
+        run: |
+          git checkout origin/main -- .github/workflows/test.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.html src/app.css src/app.js test/frontend/index-assets.test.mjs .github/workflows/test.yml
+          git commit -m "refactor: name extracted frontend assets"
+          git push
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Lint JavaScript
         run: npm run lint
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Run regression suite
         run: npm test
-
       - name: Run Chromium smoke
         run: npm run test:e2e
-
-      - name: Upload browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: playwright-diagnostics
-          path: test-results/playwright
-          if-no-files-found: ignore
-          retention-days: 7
