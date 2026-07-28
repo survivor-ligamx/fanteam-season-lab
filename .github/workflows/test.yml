@@ -6,69 +6,46 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  fix-index-script-tag:
-    if: github.event_name == 'pull_request' && github.head_ref == 'refactor/extract-index-inline-assets'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout extraction branch
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: refactor/extract-index-inline-assets
-          fetch-depth: 0
-      - name: Restore valid script tag
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          index = Path('index.html')
-          html = index.read_text(encoding='utf-8')
-          broken = '<scriptsrc="src/app.js?v=1"></script>'
-          fixed = '<script src="src/app.js?v=1"></script>'
-          if html.count(broken) != 1:
-              raise SystemExit(f'Expected one broken script tag, found {html.count(broken)}')
-          index.write_text(html.replace(broken, fixed), encoding='utf-8')
-
-          test = Path('test/frontend/index-assets.test.mjs')
-          source = test.read_text(encoding='utf-8')
-          source = source.replace(
-              '  assert.match(html, /src="src\\/app\\.js\\?v=1"/);',
-              '  assert.match(html, /<script src="src\\/app\\.js\\?v=1"><\\/script>/);\n  assert.doesNotMatch(html, /<scriptsrc=/i);',
-          )
-          test.write_text(source, encoding='utf-8')
-          PY
-      - name: Restore CI and commit fix
-        run: |
-          git checkout origin/main -- .github/workflows/test.yml
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add index.html test/frontend/index-assets.test.mjs .github/workflows/test.yml
-          git commit -m "fix: preserve extracted script tag spacing"
-          git push
-
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm ci
+
       - name: Lint JavaScript
         run: npm run lint
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
       - name: Run regression suite
         run: npm test
+
       - name: Run Chromium smoke
         run: npm run test:e2e
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-diagnostics
+          path: test-results/playwright
+          if-no-files-found: ignore
+          retention-days: 7
