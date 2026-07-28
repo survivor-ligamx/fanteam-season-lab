@@ -23,20 +23,19 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Add quality configuration
+      - name: Generate configuration and lockfile
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           import fs from "node:fs";
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-          pkg.scripts = {
-            ...pkg.scripts,
-            lint: 'eslint "src/**/*.js" "worker/src/**/*.js" "scripts/**/*.mjs"',
-            "lint:fix": 'npm run lint -- --fix',
-            format: 'prettier --write "**/*.{js,mjs,json,md,yml,yaml,css,html}"',
-            "format:check": 'prettier --check "**/*.{js,mjs,json,md,yml,yaml,css,html}"'
-          };
+          pkg.scripts.lint = 'eslint "src/**/*.js" "worker/src/**/*.js" "scripts/**/*.mjs"';
+          pkg.scripts["lint:fix"] = 'npm run lint -- --fix';
+          pkg.scripts.format = 'prettier --write "**/*.{js,mjs,json,md,yml,yaml,css,html}"';
+          pkg.scripts["format:check"] = 'prettier --check "**/*.{js,mjs,json,md,yml,yaml,css,html}"';
+          pkg.devDependencies.eslint = "9.32.0";
+          pkg.devDependencies.prettier = "3.6.2";
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
           NODE
 
@@ -53,17 +52,11 @@ jobs:
             },
             {
               files: ["src/**/*.js"],
-              languageOptions: {
-                ecmaVersion: "latest",
-                sourceType: "script",
-              },
+              languageOptions: { ecmaVersion: "latest", sourceType: "script" },
             },
             {
               files: ["worker/src/**/*.js", "scripts/**/*.mjs"],
-              languageOptions: {
-                ecmaVersion: "latest",
-                sourceType: "module",
-              },
+              languageOptions: { ecmaVersion: "latest", sourceType: "module" },
             },
           ];
           EOF
@@ -99,19 +92,13 @@ jobs:
           path = Path('.github/workflows/test.yml')
           text = path.read_text()
           marker = '      - name: Install Chromium\n'
-          lint = '      - name: Lint JavaScript\n        run: npm run lint\n\n'
-          if lint not in text:
-              text = text.replace(marker, lint + marker)
+          step = '      - name: Lint JavaScript\n        run: npm run lint\n\n'
+          if step not in text:
+              text = text.replace(marker, step + marker)
           path.write_text(text)
           PY
 
-      - name: Synchronize package lock
-        run: npm install --package-lock-only --save-dev eslint@^9.32.0 prettier@^3.6.2
-
-      - name: Verify install and lint
-        run: |
-          npm ci
-          npm run lint
+          npm install --package-lock-only --ignore-scripts
 
       - name: Commit generated changes
         shell: bash
