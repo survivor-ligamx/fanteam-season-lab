@@ -13,6 +13,10 @@
   }
 
   const ALTERNATIVE_LINEUP_PENALTY = MonteCarlo.ALTERNATIVE_LINEUP_PENALTY;
+  const PublicSignals = globalThis.FanTeamPlayerLabSignals || null;
+  const storedCopilot = Copilot.read();
+  const storedDraft = Draft.read();
+  const storedProbable = Probable.read();
 
   const $ = (selector) => document.querySelector(selector);
   const esc = Data.escapeHTML;
@@ -25,17 +29,20 @@
     gameweek: 1,
     selected: [],
     shortlist: Data.readShortlist(),
-    copilot: Copilot.read(),
+    copilot: storedCopilot,
+    copilotSource: storedCopilot ? "browser" : null,
     copilotByPlayerId: new Map(),
     playerByCopilot: new Map(),
     copilotMatchMethod: new Map(),
-    draft: Draft.read(),
+    draft: storedDraft,
+    draftSource: storedDraft ? "browser" : null,
     draftByPlayerId: new Map(),
     playerByDraft: new Map(),
     draftMatchMethod: new Map(),
     draftUnmatchedRows: [],
     draftAmbiguousRows: [],
-    probable: Probable.read(),
+    probable: storedProbable,
+    probableSource: storedProbable ? "browser" : null,
     probableByPlayerId: new Map(),
     playerByProbable: new Map(),
     probableMatchMethod: new Map(),
@@ -52,7 +59,9 @@
   }
 
   function loadLocalCopilotSource() {
-    if (!localSnapshotAllowed() || globalThis.FplCopilotLocalCsv) return Promise.resolve();
+    if (!localSnapshotAllowed() || !Copilot.snapshotEnabled() || globalThis.FplCopilotLocalCsv) {
+      return Promise.resolve();
+    }
     return new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = ".local-data/fpl-copilot-local.js";
@@ -64,30 +73,25 @@
   }
 
   async function loadLocalCopilotSnapshot() {
+    if (state.copilot || !Copilot.snapshotEnabled()) return false;
     await loadLocalCopilotSource();
     const source = globalThis.FplCopilotLocalCsv;
     if (!source || typeof source.text !== "string" || !source.text.trim()) return false;
-
     const filename = String(source.filename || "tabla_fpl_completa.csv").slice(0, 120);
     const lastModified = Number(source.lastModified);
-    const currentRows = state.copilot?.players?.length || 0;
-    const currentModified = new Date(state.copilot?.fileModifiedAt || "").getTime();
-    if (currentRows && state.copilot.filename !== filename) return false;
-    if (currentRows && Number.isFinite(lastModified)
-      && Number.isFinite(currentModified) && currentModified >= lastModified) return false;
-
     const file = new File([source.text], filename, {
       type: "text/csv",
       lastModified: Number.isFinite(lastModified) ? Math.trunc(lastModified) : Date.now(),
     });
-    const dataset = await Copilot.parseFile(file);
-    state.copilot = dataset;
-    Copilot.save(dataset);
+    state.copilot = await Copilot.parseFile(file);
+    state.copilotSource = "local";
     return true;
   }
 
   function loadLocalDraftSource() {
-    if (!localSnapshotAllowed() || !Draft.snapshotEnabled() || globalThis.DraftFantasyLocalCsv) return Promise.resolve();
+    if (!localSnapshotAllowed() || !Draft.snapshotEnabled() || globalThis.DraftFantasyLocalCsv) {
+      return Promise.resolve();
+    }
     return new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = ".local-data/draft-fantasy-local.js";
@@ -99,31 +103,25 @@
   }
 
   async function loadLocalDraftSnapshot() {
-    if (!Draft.snapshotEnabled()) return false;
+    if (state.draft || !Draft.snapshotEnabled()) return false;
     await loadLocalDraftSource();
     const source = globalThis.DraftFantasyLocalCsv;
     if (!source || typeof source.text !== "string" || !source.text.trim()) return false;
-
     const filename = String(source.filename || "tabla_draftfantasy_proyecciones.csv").slice(0, 120);
     const lastModified = Number(source.lastModified);
-    const currentRows = state.draft?.players?.length || 0;
-    const currentModified = new Date(state.draft?.fileModifiedAt || "").getTime();
-    if (currentRows && state.draft.filename !== filename) return false;
-    if (currentRows && Number.isFinite(lastModified)
-      && Number.isFinite(currentModified) && currentModified >= lastModified) return false;
-
     const file = new File([source.text], filename, {
       type: "text/csv",
       lastModified: Number.isFinite(lastModified) ? Math.trunc(lastModified) : Date.now(),
     });
-    const dataset = await Draft.parseFile(file);
-    state.draft = dataset;
-    Draft.save(dataset);
+    state.draft = await Draft.parseFile(file);
+    state.draftSource = "local";
     return true;
   }
 
   function loadLocalProbableSource() {
-    if (!localSnapshotAllowed() || !Probable.snapshotEnabled() || globalThis.ProbableLineupsLocalCsv) return Promise.resolve();
+    if (!localSnapshotAllowed() || !Probable.snapshotEnabled() || globalThis.ProbableLineupsLocalCsv) {
+      return Promise.resolve();
+    }
     return new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = ".local-data/probable-lineups-local.js";
@@ -135,27 +133,63 @@
   }
 
   async function loadLocalProbableSnapshot() {
-    if (!Probable.snapshotEnabled()) return false;
+    if (state.probable || !Probable.snapshotEnabled()) return false;
     await loadLocalProbableSource();
     const source = globalThis.ProbableLineupsLocalCsv;
     if (!source || typeof source.text !== "string" || !source.text.trim()) return false;
-
     const filename = String(source.filename || "tabla_alineaciones_probables.csv").slice(0, 120);
     const lastModified = Number(source.lastModified);
-    const currentRows = state.probable?.players?.length || 0;
-    const currentModified = new Date(state.probable?.fileModifiedAt || "").getTime();
-    if (currentRows && state.probable.filename !== filename) return false;
-    if (currentRows && Number.isFinite(lastModified)
-      && Number.isFinite(currentModified) && currentModified >= lastModified) return false;
-
     const file = new File([source.text], filename, {
       type: "text/csv",
       lastModified: Number.isFinite(lastModified) ? Math.trunc(lastModified) : Date.now(),
     });
-    const dataset = await Probable.parseFile(file);
-    state.probable = dataset;
-    Probable.save(dataset);
+    state.probable = await Probable.parseFile(file);
+    state.probableSource = "local";
     return true;
+  }
+
+  function loadPublicCopilotSnapshot() {
+    if (state.copilot || !Copilot.snapshotEnabled() || !PublicSignals?.copilot) return false;
+    state.copilot = Copilot.normalizePayload(PublicSignals.copilot);
+    state.copilotSource = "public";
+    return true;
+  }
+
+  function loadPublicDraftSnapshot() {
+    if (state.draft || !Draft.snapshotEnabled() || !PublicSignals?.draft) return false;
+    state.draft = Draft.normalizeDataset(PublicSignals.draft);
+    state.draftSource = "public";
+    return true;
+  }
+
+  function loadPublicProbableSnapshot() {
+    if (state.probable || !Probable.snapshotEnabled() || !PublicSignals?.probable) return false;
+    state.probable = Probable.normalizeDataset(PublicSignals.probable);
+    state.probableSource = "public";
+    return true;
+  }
+
+  async function safeSnapshotLoad(label, loader) {
+    try {
+      return await loader();
+    } catch (error) {
+      console.warn(`No se pudo cargar el snapshot ${label}`, error);
+      return false;
+    }
+  }
+
+  async function loadSignalSnapshots() {
+    const localLoaded = await Promise.all([
+      safeSnapshotLoad("local de Copilot", loadLocalCopilotSnapshot),
+      safeSnapshotLoad("local de Draft", loadLocalDraftSnapshot),
+      safeSnapshotLoad("local de alineaciones", loadLocalProbableSnapshot),
+    ]);
+    const publicLoaded = await Promise.all([
+      safeSnapshotLoad("público de Copilot", loadPublicCopilotSnapshot),
+      safeSnapshotLoad("público de Draft", loadPublicDraftSnapshot),
+      safeSnapshotLoad("público de alineaciones", loadPublicProbableSnapshot),
+    ]);
+    return localLoaded.map((loaded, index) => loaded || publicLoaded[index]);
   }
 
   function toast(message) {
@@ -225,6 +259,14 @@
       dateStyle: "medium",
       timeStyle: "short",
     }).format(timestamp);
+  }
+
+  function signalSourceLabel(source) {
+    return {
+      browser: "importación guardada en este navegador",
+      local: "snapshot local de desarrollo",
+      public: "datos precargados en la web",
+    }[source] || "origen no indicado";
   }
 
   function playerIdentity(name, club) {
@@ -592,14 +634,19 @@
     const sourceCard = status.closest(".copilot-source-card");
     const rows = state.copilot?.players || [];
     clearButton.disabled = !rows.length;
+    clearButton.textContent = state.copilotSource === "browser"
+      ? "Borrar Copilot importado"
+      : "Ocultar Copilot precargado";
     sourceCard.classList.remove("warning");
     if (!rows.length) {
-      status.textContent = "Sin importación local";
-      meta.textContent = "No se realiza ninguna descarga automática.";
+      status.textContent = Copilot.snapshotEnabled()
+        ? "Sin datos de Copilot"
+        : "Copilot precargado desactivado";
+      meta.textContent = "Puedes reactivarlo importando un archivo autorizado.";
       return;
     }
     const sourceDate = formatDateTime(state.copilot.sourceUpdatedAt);
-    const importedDate = formatDateTime(state.copilot.importedAt);
+    const loadedDate = formatDateTime(state.copilot.importedAt);
     const warnings = [];
     if (state.copilot.meta?.stalenessWarning) {
       const hours = Data.finite(state.copilot.meta.stalenessHours);
@@ -612,9 +659,10 @@
     sourceCard.classList.toggle("warning", warnings.length > 0);
     status.textContent = `${rows.length} jugadores · ${state.copilotByPlayerId.size} vinculados con FanTeam`;
     meta.textContent = [
+      signalSourceLabel(state.copilotSource),
       state.copilot.filename,
       sourceDate ? `fuente actualizada ${sourceDate}` : "fecha de fuente no indicada",
-      importedDate ? `importado localmente ${importedDate}` : null,
+      loadedDate ? `snapshot ${loadedDate}` : null,
       ...warnings,
     ].filter(Boolean).join(" · ");
   }
@@ -626,9 +674,14 @@
     const sourceCard = status.closest(".copilot-source-card");
     const rows = state.draft?.players || [];
     clearButton.disabled = !rows.length;
+    clearButton.textContent = state.draftSource === "browser"
+      ? "Borrar Draft importado"
+      : "Ocultar Draft precargado";
     sourceCard.classList.remove("warning");
     if (!rows.length) {
-      status.textContent = "Sin proyecciones locales";
+      status.textContent = Draft.snapshotEnabled()
+        ? "Sin proyecciones Draft"
+        : "Draft precargado desactivado";
       meta.textContent = "Draft no modifica precio, posición ni scoring FanTeam.";
       return;
     }
@@ -644,6 +697,7 @@
     sourceCard.classList.toggle("warning", warnings.length > 0);
     status.textContent = `${rows.length} proyecciones · ${linked} vinculadas con FanTeam${usability.active ? "" : " · inactiva"}`;
     meta.textContent = [
+      signalSourceLabel(state.draftSource),
       state.draft.filename,
       modifiedDate ? `archivo modificado ${modifiedDate}` : null,
       `${state.draftUnmatchedRows.length} sin match`,
@@ -659,9 +713,14 @@
     const sourceCard = status.closest(".copilot-source-card");
     const rows = state.probable?.players || [];
     clearButton.disabled = !rows.length;
+    clearButton.textContent = state.probableSource === "browser"
+      ? "Borrar alineaciones importadas"
+      : "Ocultar alineaciones precargadas";
     sourceCard.classList.remove("warning");
     if (!rows.length) {
-      status.textContent = "Sin alineación probable local";
+      status.textContent = Probable.snapshotEnabled()
+        ? "Sin alineaciones probables"
+        : "Alineaciones precargadas desactivadas";
       meta.textContent = "Probable no significa confirmado y no aporta puntos, precio ni posición.";
       return;
     }
@@ -671,14 +730,16 @@
     const coverage = rows.length ? linked / rows.length : 0;
     const probableRows = rows.filter((row) => row.role === "probable").length;
     const alternativeRows = rows.filter((row) => row.role === "alternative").length;
+    const rawProbableRows = Number(state.probable.meta?.rawProbableRows) || probableRows;
     const warnings = [];
     if (state.probableAmbiguousRows.length) warnings.push(`${state.probableAmbiguousRows.length} ambiguas excluidas`);
     if (coverage < 0.8) warnings.push(`cobertura vinculada baja (${Math.round(coverage * 100)}%)`);
     if (!usability.active) warnings.push(`señal inactiva: ${usability.reason}`);
     sourceCard.classList.toggle("warning", warnings.length > 0);
-    status.textContent = `GW1 · 220 titulares previstos en 20 clubes · ${linked} señales vinculadas${usability.active ? "" : " · inactiva"}`;
+    status.textContent = `GW1 · ${rawProbableRows} titulares previstos en 20 clubes · ${linked}/${rows.length} señales vinculadas${usability.active ? "" : " · inactiva"}`;
     meta.textContent = [
       "probable, no confirmado",
+      signalSourceLabel(state.probableSource),
       state.probable.filename,
       modifiedDate ? `archivo modificado ${modifiedDate}` : null,
       `${probableRows} probables seguros + ${alternativeRows} alternativas seguras`,
@@ -697,6 +758,8 @@
     try {
       const dataset = await Copilot.parseFile(file);
       state.copilot = dataset;
+      state.copilotSource = "browser";
+      Copilot.enableSnapshot();
       const persisted = Copilot.save(dataset);
       if (state.workspace) populateGameweeks();
       rebuildCopilotMatches();
@@ -718,17 +781,18 @@
   function clearCopilotImport() {
     const rows = state.copilot?.players || [];
     if (!rows.length) return;
-    if (!globalThis.confirm("¿Borrar la importación local de FPL Copilot de este navegador?")) return;
-    if (!Copilot.clear()) {
-      toast("No se pudo borrar el archivo local; revisa los permisos de almacenamiento");
+    if (!globalThis.confirm("¿Borrar u ocultar los datos de FPL Copilot en este navegador?")) return;
+    if (!Copilot.clear() || !Copilot.disableSnapshot()) {
+      toast("No se pudo desactivar Copilot; revisa los permisos de almacenamiento");
       return;
     }
     state.copilot = null;
+    state.copilotSource = null;
     if (state.workspace) populateGameweeks();
     rebuildCopilotMatches();
     rebuildConsensus();
     renderAll();
-    toast("Importación local de Copilot eliminada");
+    toast("Copilot eliminado y datos precargados desactivados en este navegador");
   }
 
   async function importDraftFile(file) {
@@ -738,6 +802,7 @@
     try {
       const dataset = await Draft.parseFile(file);
       state.draft = dataset;
+      state.draftSource = "browser";
       Draft.enableSnapshot();
       const persisted = Draft.save(dataset);
       if (state.workspace) populateGameweeks();
@@ -760,17 +825,18 @@
   function clearDraftImport() {
     const rows = state.draft?.players || [];
     if (!rows.length) return;
-    if (!globalThis.confirm("¿Borrar las proyecciones Draft locales de este navegador?")) return;
+    if (!globalThis.confirm("¿Borrar u ocultar las proyecciones Draft en este navegador?")) return;
     if (!Draft.clear() || !Draft.disableSnapshot()) {
-      toast("No se pudo desactivar el archivo Draft local; revisa los permisos de almacenamiento");
+      toast("No se pudo desactivar Draft; revisa los permisos de almacenamiento");
       return;
     }
     state.draft = null;
+    state.draftSource = null;
     if (state.workspace) populateGameweeks();
     rebuildDraftMatches();
     rebuildConsensus();
     renderAll();
-    toast("Proyecciones Draft locales eliminadas");
+    toast("Draft eliminado y datos precargados desactivados en este navegador");
   }
 
   async function importProbableFile(file) {
@@ -780,6 +846,7 @@
     try {
       const dataset = await Probable.parseFile(file);
       state.probable = dataset;
+      state.probableSource = "browser";
       Probable.enableSnapshot();
       const persisted = Probable.save(dataset);
       rebuildProbableMatches();
@@ -801,16 +868,17 @@
   function clearProbableImport() {
     const rows = state.probable?.players || [];
     if (!rows.length) return;
-    if (!globalThis.confirm("¿Borrar y desactivar las alineaciones probables locales de este navegador?")) return;
+    if (!globalThis.confirm("¿Borrar u ocultar las alineaciones probables en este navegador?")) return;
     if (!Probable.clear() || !Probable.disableSnapshot()) {
       toast("No se pudo desactivar el archivo de alineaciones; revisa los permisos de almacenamiento");
       return;
     }
     state.probable = null;
+    state.probableSource = null;
     rebuildProbableMatches();
     rebuildConsensus();
     renderAll();
-    toast("Alineaciones probables locales eliminadas");
+    toast("Alineaciones eliminadas y datos precargados desactivados en este navegador");
   }
 
   function priceSource(player) {
@@ -1008,7 +1076,7 @@
     const method = ownPlayer ? state.copilotMatchMethod.get(Number(ownPlayer.id)) : null;
     const playerCell = ownPlayer
       ? tablePlayer(ownPlayer, row.name, `${row.teamCode || row.team} · vínculo ${method}`)
-      : `<span class="model-player-static"><strong title="${esc(row.name)}">${esc(row.name)}</strong><small>${esc(row.teamCode || row.team)} · sin vínculo local</small></span>`;
+      : `<span class="model-player-static"><strong title="${esc(row.name)}">${esc(row.name)}</strong><small>${esc(row.teamCode || row.team)} · sin vínculo FanTeam</small></span>`;
     const fanteamPrice = Data.finite(ownPlayer?.price);
     const fanteamPosition = ownPlayer?.pos || null;
     const positionTitle = !ownPlayer
@@ -1058,10 +1126,10 @@
       : row.availability.doubt || row.availability.caution ? "medium" : "easy";
     const probableLabel = probableRoleLabel(row.probableLineupRole);
     const probableBadge = probableLabel
-      ? `<span class="pl-chip ${row.probableLineupRole === "alternative" ? "medium" : "info"}" title="Predicción local separada; no cambia puntos, precio, posición ni disponibilidad confirmada">${esc(probableLabel)}</span>`
+      ? `<span class="pl-chip ${row.probableLineupRole === "alternative" ? "medium" : "info"}" title="Predicción precargada o importada; no cambia puntos, precio, posición ni disponibilidad confirmada">${esc(probableLabel)}</span>`
       : "";
     const copilotCell = row.copilotSignal == null
-      ? '<td title="Sin match Copilot local; el consenso renormaliza las señales disponibles">—</td>'
+      ? '<td title="Sin match Copilot seguro; el consenso renormaliza las señales disponibles">—</td>'
       : `<td title="Copilot GW1 ${row.copilotPoints.toFixed(2)}; percentil normalizado por posición, precio y valor">${Math.round(row.copilotSignal)}</td>`;
     const agreementDetail = row.agreement === "sin contraste"
       ? "sin contraste externo"
@@ -1093,15 +1161,17 @@
 
     const copilotRows = sharedCopilotRows();
     $("#copilotModelCount").textContent = state.copilot
-      ? `${copilotRows.length} visibles`
-      : "sin archivo";
+      ? `${copilotRows.length}/${state.copilot.players.length} visibles`
+      : "sin datos";
     $("#copilotModelBody").innerHTML = copilotRows.length
       ? copilotRows.map((row) => copilotModelRow(row, gameweeks)).join("")
       : `<tr><td class="model-table-empty" colspan="${gameweeks.length + 4}">${state.copilot ? "No hay jugadores Copilot para estos filtros." : "Importa un JSON/CSV autorizado para mostrar la segunda tabla completa."}</td></tr>`;
 
     const consensusRows = sharedConsensusRows();
+    const draftStatus = Draft.datasetStatus(state.draft, { gameweek: Consensus.GAMEWEEK });
+    const draftCoverage = draftStatus.active ? state.draftByPlayerId.size : 0;
     $("#consensusModelCount").textContent = consensusRows.length
-      ? `${consensusRows.length} consensos`
+      ? `${consensusRows.length} consensos · CP ${state.copilotByPlayerId.size} · Draft ${draftCoverage}`
       : "sin consenso";
     $("#consensusModelBody").innerHTML = consensusRows.length
       ? consensusRows.map(consensusModelRow).join("")
@@ -1464,11 +1534,7 @@
   $("#probableClear").addEventListener("click", clearProbableImport);
   globalThis.addEventListener("beforeunload", dispose);
 
-  Promise.all([loadLocalCopilotSnapshot(), loadLocalDraftSnapshot(), loadLocalProbableSnapshot()])
-    .catch((error) => {
-      console.warn("No se pudieron cargar todos los snapshots locales", error);
-      return [false, false, false];
-    })
+  loadSignalSnapshots()
     .then(async ([copilotLoaded, draftLoaded, probableLoaded]) => {
       await load();
       const loaded = [

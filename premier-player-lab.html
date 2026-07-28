@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Player Lab Premier League · FanTeam Elite Lab</title>
-  <meta name="description" content="Compara FanTeam con señales locales de FPL Copilot, Draft Fantasy y alineaciones probables verificadas, simula 10.000 escenarios Monte Carlo y construye una plantilla FanTeam robusta y explicable para GW1.">
+  <meta name="description" content="Compara FanTeam con señales precargadas o importadas de FPL Copilot, Draft Fantasy y alineaciones probables verificadas, simula 10.000 escenarios Monte Carlo y construye una plantilla FanTeam robusta y explicable para GW1.">
   <link rel="stylesheet" href="src/premier-pages.css?v=2">
 </head>
 <body data-page="player-lab">
@@ -44,7 +44,7 @@
           <div class="pl-hero-copy">
             <span class="pl-eyebrow">Player Lab · 2 a 4 jugadores</span>
             <h1 id="labTitle">Compara perfiles, no solo nombres</h1>
-            <p>Contrasta FanTeam con tus señales locales de FPL Copilot, Draft Fantasy y una alineación probable —nunca confirmada—, y convierte proyecciones, calendario, cuotas y disponibilidad en un consenso explicable que Monte Carlo somete a 10.000 escenarios para construir la plantilla GW1.</p>
+            <p>Contrasta FanTeam con las señales precargadas de FPL Copilot, Draft Fantasy y una alineación probable —nunca confirmada—, o reemplázalas con tus propios archivos autorizados. El consenso explicable se somete a 10.000 escenarios Monte Carlo para construir la plantilla GW1.</p>
             <div class="pl-hero-actions">
               <button class="pl-button primary" id="copyLabLink" type="button">Copiar comparación</button>
               <a class="pl-button" href="premier-radar.html">Abrir Radar PL</a>
@@ -82,20 +82,20 @@
             <div>
               <span class="pl-eyebrow">Comparación de fuentes · filtros compartidos</span>
               <h2 id="modelCompareTitle">FanTeam Projection · señales externas · Consenso GW1</h2>
-              <p class="pl-note">Las tablas comparten búsqueda, posición y precio FanTeam máximo. Copilot y Draft son señales locales opcionales; la alineación probable solo informa y modula riesgo, y el consenso permanece fijado en GW1.</p>
+              <p class="pl-note">Las tablas comparten búsqueda, posición y precio FanTeam máximo. Copilot, Draft y alineaciones ya vienen precargados; una importación manual tiene prioridad. La alineación probable solo informa y modula riesgo, y el consenso permanece fijado en GW1.</p>
             </div>
             <div class="copilot-import-actions">
               <input class="sr-only" id="copilotFile" type="file" accept=".json,.csv,application/json,text/csv" tabindex="-1" aria-label="Archivo autorizado de FPL Copilot en formato JSON o CSV">
               <button class="pl-button primary" id="copilotImport" type="button">Importar JSON/CSV autorizado</button>
-              <button class="pl-button danger" id="copilotClear" type="button" disabled>Borrar Copilot local</button>
+              <button class="pl-button danger" id="copilotClear" type="button" disabled>Ocultar Copilot precargado</button>
             </div>
           </div>
 
           <div class="pl-card copilot-source-card" aria-live="polite">
             <div>
               <small>Estado de FPL Copilot</small>
-              <strong id="copilotStatus">Sin importación local</strong>
-              <span id="copilotMeta">No se realiza ninguna descarga automática.</span>
+              <strong id="copilotStatus">Preparando Copilot precargado…</strong>
+              <span id="copilotMeta">Validando cobertura y vínculos con FanTeam.</span>
             </div>
             <a class="pl-button compact" href="https://fplcopilot.com/expected-points" target="_blank" rel="noopener noreferrer">Abrir fuente original</a>
           </div>
@@ -103,13 +103,13 @@
           <div class="pl-card copilot-source-card" aria-live="polite">
             <div>
               <small>Estado de Draft Fantasy</small>
-              <strong id="draftStatus">Sin proyecciones locales</strong>
+              <strong id="draftStatus">Preparando Draft precargado…</strong>
               <span id="draftMeta">Draft no modifica precio, posición ni scoring FanTeam.</span>
             </div>
             <div class="copilot-import-actions">
-              <input class="sr-only" id="draftFile" type="file" accept=".csv,text/csv" tabindex="-1" aria-label="CSV local de proyecciones Draft Fantasy">
+              <input class="sr-only" id="draftFile" type="file" accept=".csv,text/csv" tabindex="-1" aria-label="CSV autorizado de proyecciones Draft Fantasy">
               <button class="pl-button primary" id="draftImport" type="button">Importar CSV Draft</button>
-              <button class="pl-button danger" id="draftClear" type="button" disabled>Borrar Draft local</button>
+              <button class="pl-button danger" id="draftClear" type="button" disabled>Ocultar Draft precargado</button>
               <a class="pl-button compact" href="https://www.draftfantasy.com/" target="_blank" rel="noopener noreferrer">Abrir Draft Fantasy</a>
             </div>
           </div>
@@ -117,13 +117,13 @@
           <div class="pl-card copilot-source-card" aria-live="polite">
             <div>
               <small>Estado de alineaciones probables</small>
-              <strong id="probableStatus">Sin alineación probable local</strong>
+              <strong id="probableStatus">Preparando alineaciones precargadas…</strong>
               <span id="probableMeta">Probable no significa confirmado y no aporta puntos, precio ni posición.</span>
             </div>
             <div class="copilot-import-actions">
-              <input class="sr-only" id="probableFile" type="file" accept=".csv,text/csv" tabindex="-1" aria-label="CSV local de alineaciones probables de Fantasy Football Pundit">
+              <input class="sr-only" id="probableFile" type="file" accept=".csv,text/csv" tabindex="-1" aria-label="CSV autorizado de alineaciones probables de Fantasy Football Pundit">
               <button class="pl-button primary" id="probableImport" type="button">Importar alineaciones</button>
-              <button class="pl-button danger" id="probableClear" type="button" disabled>Borrar alineaciones</button>
+              <button class="pl-button danger" id="probableClear" type="button" disabled>Ocultar alineaciones precargadas</button>
               <a class="pl-button compact" href="https://www.fantasyfootballpundit.com/fantasy-premier-league-team-news/" target="_blank" rel="noopener noreferrer">Abrir fuente original</a>
             </div>
           </div>
@@ -141,12 +141,12 @@
             </article>
 
             <article class="pl-card model-table-card" aria-labelledby="copilotModelTitle">
-              <div class="pl-card-head"><div><small>Archivo local · señal externa, no scoring final</small><h3 id="copilotModelTitle">FPL Copilot</h3></div><span class="pl-chip info" id="copilotModelCount">0</span></div>
+              <div class="pl-card-head"><div><small>Datos precargados o importación manual · señal externa, no scoring final</small><h3 id="copilotModelTitle">FPL Copilot</h3></div><span class="pl-chip info" id="copilotModelCount">0</span></div>
               <div class="model-table-scroll" role="region" tabindex="0" aria-labelledby="copilotModelTitle" aria-label="Tabla FPL Copilot desplazable horizontal y verticalmente">
                 <table class="model-table">
                   <caption class="sr-only">Puntos esperados importados de FPL Copilot para todos los jugadores filtrados</caption>
                   <thead id="copilotModelHead"></thead>
-                  <tbody id="copilotModelBody"><tr><td class="model-table-empty">Importa un archivo autorizado para mostrar la segunda tabla.</td></tr></tbody>
+                  <tbody id="copilotModelBody"><tr><td class="model-table-empty">Preparando la tabla Copilot precargada…</td></tr></tbody>
                 </table>
               </div>
             </article>
@@ -162,7 +162,7 @@
               </div>
             </article>
           </div>
-          <p class="copilot-usage-note"><strong>Uso local:</strong> los archivos permanecen en este navegador y la página no consulta ni raspa automáticamente Copilot, Draft o Fantasy Football Pundit. Todos los precios, posiciones, presupuesto, medias de proyección y scoring decisivo son FanTeam; Copilot y Draft aportan percentiles externos. La alineación probable es una señal GW1 separada: “probable” no da bonus ni equivale a confirmado; “alternative” solo reduce 0,35 el orden del XI y añade incertidumbre Monte Carlo, sin mover la media.</p>
+          <p class="copilot-usage-note"><strong>Datos y privacidad:</strong> esta web carga snapshots derivados y normalizados de los tres archivos ya proporcionados; no publica los CSV crudos ni consulta o raspa automáticamente Copilot, Draft o Fantasy Football Pundit. Si importas un archivo autorizado, queda en este navegador y tiene prioridad. Todos los precios, posiciones, presupuesto, medias de proyección y scoring decisivo son FanTeam; Copilot y Draft solo aportan percentiles externos. La alineación probable es una señal GW1 separada: “probable” no da bonus ni equivale a confirmado; “alternative” solo reduce 0,35 el orden del XI y añade incertidumbre Monte Carlo, sin mover la media.</p>
 
           <section class="pl-card consensus-builder" aria-labelledby="consensusSquadTitle">
             <div class="pl-card-head consensus-builder-head">
@@ -214,11 +214,12 @@
   <script src="src/fanteam-projection.js"></script>
   <script src="src/fanteam-wildcard.js"></script>
   <script src="src/premier-data.js"></script>
-  <script src="src/fpl-copilot-import.js"></script>
+  <script src="src/fpl-copilot-import.js?v=3"></script>
   <script src="src/draft-fantasy-import.js"></script>
   <script src="src/probable-lineups-import.js"></script>
+  <script src="public-data/player-lab-signals.js?v=1"></script>
   <script src="src/premier-consensus.js?v=2"></script>
   <script src="src/premier-monte-carlo.js?v=2"></script>
-  <script src="src/premier-player-lab.js?v=2"></script>
+  <script src="src/premier-player-lab.js?v=3"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@
   if (!Data) throw new Error("PremierLeagueData debe cargarse antes del importador de FPL Copilot");
 
   const STORAGE_KEY = "fanteam-fpl-copilot-import-v1";
+  const SNAPSHOT_DISABLED_KEY = "fanteam-fpl-copilot-local-disabled-v1";
   const SCHEMA_VERSION = 1;
   const MAX_FILE_BYTES = 4 * 1024 * 1024;
   const MAX_PLAYERS = 1000;
@@ -394,6 +395,32 @@
     }
   }
 
+  function snapshotEnabled() {
+    try {
+      return global.localStorage?.getItem(SNAPSHOT_DISABLED_KEY) !== "1";
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function enableSnapshot() {
+    try {
+      global.localStorage?.removeItem(SNAPSHOT_DISABLED_KEY);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function disableSnapshot() {
+    try {
+      global.localStorage?.setItem(SNAPSHOT_DISABLED_KEY, "1");
+      return global.localStorage?.getItem(SNAPSHOT_DISABLED_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
   function clear() {
     try {
       global.localStorage?.removeItem(STORAGE_KEY);
@@ -445,12 +472,17 @@
   global.FplCopilotImport = Object.freeze({
     MAX_FILE_BYTES,
     SCHEMA_VERSION,
+    SNAPSHOT_DISABLED_KEY,
     STORAGE_KEY,
     clear,
+    disableSnapshot,
+    enableSnapshot,
     metric,
+    normalizePayload,
     parseFile,
     pointsAt,
     read,
     save,
+    snapshotEnabled,
   });
 })(globalThis);
