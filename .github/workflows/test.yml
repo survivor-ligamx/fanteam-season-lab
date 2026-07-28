@@ -6,124 +6,46 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  extract-index-assets:
-    if: github.event_name == 'pull_request' && github.head_ref == 'refactor/extract-index-inline-assets'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout extraction branch
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: refactor/extract-index-inline-assets
-          fetch-depth: 0
-      - name: Extract inline CSS and JavaScript
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          index = Path('index.html')
-          html = index.read_text(encoding='utf-8')
-          original_size = len(html.encode('utf-8'))
-
-          styles = []
-          style_pattern = re.compile(r'<style(?P<attrs>[^>]*)>(?P<body>.*?)</style\s*>', re.I | re.S)
-
-          def replace_style(match):
-              attrs = match.group('attrs')
-              if attrs.strip():
-                  raise SystemExit(f'Unsupported attributes on inline style: {attrs!r}')
-              styles.append(match.group('body'))
-              return f'<link rel="stylesheet" href="src/index-inline-{len(styles)}.css?v=1">'
-
-          html = style_pattern.sub(replace_style, html)
-
-          scripts = []
-          script_pattern = re.compile(r'<script(?P<attrs>[^>]*)>(?P<body>.*?)</script\s*>', re.I | re.S)
-          executable_types = {'', 'text/javascript', 'application/javascript', 'module'}
-
-          def replace_script(match):
-              attrs = match.group('attrs')
-              body = match.group('body')
-              if re.search(r'\bsrc\s*=', attrs, re.I) or not body.strip():
-                  return match.group(0)
-              type_match = re.search(r'\btype\s*=\s*(["\'])(.*?)\1', attrs, re.I | re.S)
-              script_type = type_match.group(2).strip().lower() if type_match else ''
-              if script_type not in executable_types:
-                  return match.group(0)
-              scripts.append(body)
-              spacer = '' if not attrs or attrs.endswith((' ', '\t', '\r', '\n')) else ' '
-              return f'<script{attrs}{spacer}src="src/index-inline-{len(scripts)}.js?v=1"></script>'
-
-          html = script_pattern.sub(replace_script, html)
-
-          if not styles or not scripts:
-              raise SystemExit(f'Expected inline assets, found {len(styles)} styles and {len(scripts)} scripts')
-
-          for number, content in enumerate(styles, 1):
-              Path(f'src/index-inline-{number}.css').write_text(content.strip('\n') + '\n', encoding='utf-8')
-          for number, content in enumerate(scripts, 1):
-              Path(f'src/index-inline-{number}.js').write_text(content.strip('\n') + '\n', encoding='utf-8')
-
-          index.write_text(html, encoding='utf-8')
-          new_size = len(html.encode('utf-8'))
-          if new_size >= original_size:
-              raise SystemExit('index.html did not shrink')
-
-          print(f'Extracted {len(styles)} style block(s) and {len(scripts)} script block(s)')
-          print(f'index.html: {original_size} -> {new_size} bytes')
-          PY
-      - name: Add extraction contract test
-        run: |
-          cat > test/frontend/index-assets.test.mjs <<'EOF'
-          import assert from "node:assert/strict";
-          import { readFile, stat } from "node:fs/promises";
-          import test from "node:test";
-
-          test("index uses external CSS and JavaScript assets", async () => {
-            const html = await readFile(new URL("../../index.html", import.meta.url), "utf8");
-            assert.ok(Buffer.byteLength(html) < 100_000, "index.html should stay below 100 KB");
-            assert.match(html, /href="src\/index-inline-1\.css\?v=1"/);
-            assert.match(html, /src="src\/index-inline-1\.js\?v=1"/);
-            assert.doesNotMatch(html, /<style(?:\s|>)/i);
-            assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)(?![^>]*\btype=["']application\/json["'])[^>]*>\s*\S/i);
-            assert.ok((await stat(new URL("../../src/index-inline-1.css", import.meta.url))).size > 1_000);
-            assert.ok((await stat(new URL("../../src/index-inline-1.js", import.meta.url))).size > 1_000);
-          });
-          EOF
-      - name: Restore CI and commit extraction
-        run: |
-          git checkout origin/main -- .github/workflows/test.yml
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add index.html src/index-inline-*.css src/index-inline-*.js test/frontend/index-assets.test.mjs .github/workflows/test.yml
-          git commit -m "refactor: extract inline assets from index"
-          git push
-
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm ci
+
       - name: Lint JavaScript
         run: npm run lint
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
       - name: Run regression suite
         run: npm test
+
       - name: Run Chromium smoke
         run: npm run test:e2e
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-diagnostics
+          path: test-results/playwright
+          if-no-files-found: ignore
+          retention-days: 7
