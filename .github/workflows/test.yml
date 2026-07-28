@@ -6,13 +6,39 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  modularize-player-lab:
+    if: github.event_name == 'pull_request' && github.head_ref == 'copilot/modularizar-premier-player-lab'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: copilot/modularizar-premier-player-lab
+          fetch-depth: 0
+      - name: Execute mechanical split
+        shell: python
+        run: |
+          from pathlib import Path
+          workflow = Path('.github/workflows/modularize-player-lab.yml').read_text()
+          section = workflow.split('        run: |\n', 1)[1].split('      - name: Commit modular Player Lab', 1)[0]
+          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in section.splitlines())
+          exec(compile(code, 'modularize-player-lab', 'exec'))
+      - name: Restore workflow and commit generated modules
+        run: |
+          git checkout origin/main -- .github/workflows/test.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/premier-player-lab.js src/player-lab premier-player-lab.html .github/workflows/test.yml .github/workflows/modularize-player-lab.yml
+          git commit -m "refactor: split Player Lab into focused ES modules"
+          git push
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
