@@ -1,4 +1,5 @@
 (() => {
+  const baseUrl = document.currentScript.src;
   const dependencies = [
     "season-storage.js",
     "fanteam-scoring.js",
@@ -24,7 +25,7 @@
   function loadClassicScript(name) {
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = new URL(name, document.currentScript.src).href;
+      script.src = new URL(name, baseUrl).href;
       script.onload = resolve;
       script.onerror = () => reject(new Error(`No se pudo cargar ${name}`));
       document.head.append(script);

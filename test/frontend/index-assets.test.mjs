@@ -19,8 +19,10 @@ test("index uses external CSS and a single compatibility loader", async () => {
 test("web loader delegates to an ES module and preserves file fallback", async () => {
   const loader = await readFile(new URL("../../src/app-loader.js", import.meta.url), "utf8");
   const entry = await readFile(new URL("../../src/app-entry.js", import.meta.url), "utf8");
+  assert.match(loader, /const baseUrl = document\.currentScript\.src/);
   assert.match(loader, /location\.protocol === "file:"/);
   assert.match(loader, /import\("\.\/app-entry\.js"\)/);
+  assert.doesNotMatch(loader, /new URL\(name, document\.currentScript\.src\)/);
   const dependencies = ["season-storage.js", "fanteam-scoring.js", "fanteam-state.js", "fanteam-data.js", "fanteam-wildcard.js", "season-backup.js", "app.js"];
   let previous = -1;
   for (const dependency of dependencies) {
