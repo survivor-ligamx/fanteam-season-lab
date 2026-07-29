@@ -38,6 +38,11 @@ await edit("src/premier-player-lab.js", (source) => {
   return result.slice(0, -ending.length) + bootstrap;
 });
 
+await edit("test/frontend/player-lab-modules.test.mjs", (source) => source.replace(
+  'src\\/premier-player-lab\\.js\\?v=4',
+  'src\\/premier-player-lab\\.js\\?v=5',
+));
+
 await edit("package.json", (source) => {
   const manifest = JSON.parse(source);
   manifest.scripts["generate:player-lab-signals"] = "node scripts/generate-player-lab-signals-json.mjs";
