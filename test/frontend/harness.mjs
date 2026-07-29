@@ -1,9 +1,11 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
 const INDEX_PATH = fileURLToPath(new URL("../../index.html", import.meta.url));
-const APP_PATH = fileURLToPath(new URL("../../src/app.js", import.meta.url));
+const SRC_DIR = fileURLToPath(new URL("../../src/", import.meta.url));
+const APP_MANIFEST_PATH = join(SRC_DIR, "app", "manifest.json");
 const STORAGE_MODULE_PATH = fileURLToPath(new URL("../../src/season-storage.js", import.meta.url));
 const SCORING_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-scoring.js", import.meta.url));
 const IMPORT_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-import.js", import.meta.url));
@@ -24,10 +26,18 @@ const DEADLINES_MODULE_PATH = fileURLToPath(new URL("../../src/fanteam-deadlines
 const BACKUP_MODULE_PATH = fileURLToPath(new URL("../../src/season-backup.js", import.meta.url));
 const BOOTSTRAP = "initAutomation();renderWeek();";
 
+export async function readAppSource() {
+  const manifest = JSON.parse(await readFile(APP_MANIFEST_PATH, "utf8"));
+  const parts = await Promise.all(
+    manifest.parts.map((part) => readFile(join(SRC_DIR, part), "utf8")),
+  );
+  return parts.join("");
+}
+
 export async function createFrontendHarness() {
   const [html, appSource, storageModuleSource, scoringModuleSource, importModuleSource, historyModuleSource, financeModuleSource, stateModuleSource, dataModuleSource, editorialModuleSource, oddsModuleSource, projectionModuleSource, marketModuleSource, transfersModuleSource, weekModuleSource, plannerModuleSource, plannerViewModuleSource, wildcardModuleSource, deadlinesModuleSource, backupModuleSource] = await Promise.all([
     readFile(INDEX_PATH, "utf8"),
-    readFile(APP_PATH, "utf8"),
+    readAppSource(),
     readFile(STORAGE_MODULE_PATH, "utf8"),
     readFile(SCORING_MODULE_PATH, "utf8"),
     readFile(IMPORT_MODULE_PATH, "utf8"),
