@@ -1,0 +1,10 @@
+
+> fanteam-season-lab@1.0.0 test:e2e
+> playwright test --grep navega|file --reporter=line
+
+
+Running 2 tests using 1 worker
+
+[1/2] [chromium] › test/e2e/smoke.spec.mjs:42:1 › navega, renderiza y restaura un backup legacy en Chromium
+[2/2] [chromium] › test/e2e/smoke.spec.mjs:99:1 › abre la aplicación y sus módulos clásicos mediante file://
+  2 passed (13.5s)
