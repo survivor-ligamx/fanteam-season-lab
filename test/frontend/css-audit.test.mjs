@@ -4,7 +4,7 @@ import test from "node:test";
 
 const CSS_URL = new URL("../../src/fanteam-premium.css", import.meta.url);
 const REPORT_URL = new URL("../../docs/css-audit-fanteam-premium.md", import.meta.url);
-// Presupuesto: el tamaño nunca debe superar el nivel posterior a la auditoría estática.
+// Presupuesto: el tamaño nunca debe superar el nivel posterior a la auditoría estática conservadora.
 const MAX_BYTES = 40_000;
 
 test("fanteam-premium.css stays within the post-audit size budget", async () => {
