@@ -6,6 +6,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 const SRC_DIR = fileURLToPath(new URL("../../src/", import.meta.url));
+const INDEX_PATH = fileURLToPath(new URL("../../index.html", import.meta.url));
 const MAX_ORCHESTRATOR_BYTES = 20_000;
 
 async function readManifest() {
@@ -47,4 +48,49 @@ test("app modules are valid classic scripts and preserve the original bootstrap"
   assert.ok(combined.includes("initAutomation();renderWeek();"), "bootstrap order must be preserved");
   assert.ok(combined.includes("const PLAYERS="), "players catalog must live in the app modules");
   assert.ok(combined.includes("const FIXTURES="), "fixtures catalog must live in the app modules");
+});
+
+test("load-time wiring only uses declarations available at that point", async () => {
+  const manifest = await readManifest();
+  const shared = await readFile(join(SRC_DIR, "app", "shared.js"), "utf8");
+  const core = await readFile(join(SRC_DIR, "app", "core.js"), "utf8");
+  assert.equal(manifest.parts.indexOf("app/shared.js"), 1, "shared.js must load right after data.js");
+  for (const declaration of ["function nrm(", "function editorialProjectionFactor(", "function autoDraftCoreHorizon6("]) {
+    assert.ok(shared.includes(declaration), `shared.js must declare ${declaration}`);
+    assert.ok(!core.includes(declaration), `core.js must not redeclare ${declaration}`);
+  }
+});
+
+test("app boots when modules execute as separate classic scripts in manifest order", async (t) => {
+  let JSDOM;
+  try {
+    ({ JSDOM } = await import("jsdom"));
+  } catch {
+    t.skip("jsdom no está disponible en este entorno");
+    return;
+  }
+  const [html, entry, manifest] = await Promise.all([
+    readFile(INDEX_PATH, "utf8"),
+    readFile(join(SRC_DIR, "app-entry.js"), "utf8"),
+    readManifest(),
+  ]);
+  const dependencies = [...entry.matchAll(/"([a-z0-9-]+\.js)"/g)]
+    .map((match) => match[1])
+    .filter((name) => name !== "app.js");
+  assert.ok(dependencies.length >= 15, "app-entry.js must list the classic dependencies");
+
+  const dom = new JSDOM(html, { runScripts: "outside-only", url: "https://fanteam.test/" });
+  try {
+    const context = dom.getInternalVMContext();
+    for (const name of dependencies) {
+      vm.runInContext(await readFile(join(SRC_DIR, name), "utf8"), context, { filename: name });
+    }
+    for (const part of manifest.parts) {
+      vm.runInContext(await readFile(join(SRC_DIR, part), "utf8"), context, { filename: part });
+    }
+    assert.equal(dom.window.document.querySelectorAll("#pitch .player").length, 11);
+    assert.equal(dom.window.document.querySelectorAll("#bench .benchCard").length, 4);
+  } finally {
+    dom.window.close();
+  }
 });
