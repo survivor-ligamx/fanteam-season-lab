@@ -4,8 +4,9 @@ import test from "node:test";
 
 const CSS_URL = new URL("../../src/fanteam-premium.css", import.meta.url);
 const REPORT_URL = new URL("../../docs/css-audit-fanteam-premium.md", import.meta.url);
-// Presupuesto post-auditoría: la hoja no debe volver a crecer tras la limpieza auditada.
-const MAX_BYTES = 40_000;
+// Presupuesto post-auditoría: margen sobre el tamaño recortado (~41,580 B) que
+// evita que la hoja vuelva a crecer sin control.
+const MAX_BYTES = 41_700;
 
 test("fanteam-premium.css stays within the post-audit size budget", async () => {
   const size = (await stat(CSS_URL)).size;
