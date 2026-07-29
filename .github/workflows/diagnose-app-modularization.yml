@@ -18,19 +18,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Capture lint and tests
+      - run: npx playwright install --with-deps chromium
+      - name: Capture E2E output
         shell: bash
         run: |
           set +e
-          npm run lint > /tmp/diagnostics.log 2>&1
-          echo "LINT_STATUS=$?" >> /tmp/diagnostics.log
-          npm test >> /tmp/diagnostics.log 2>&1
-          echo "TEST_STATUS=$?" >> /tmp/diagnostics.log
-          tail -c 30000 /tmp/diagnostics.log > /tmp/diagnostics-tail.log
+          npm run test:e2e > /tmp/e2e.log 2>&1
+          echo "E2E_STATUS=$?" >> /tmp/e2e.log
+          tail -c 28000 /tmp/e2e.log > /tmp/e2e-tail.log
           {
-            echo '## Diagnóstico automático temporal (PR #66)'
+            echo '## Diagnóstico E2E temporal (PR #66)'
             echo '```text'
-            cat /tmp/diagnostics-tail.log
+            cat /tmp/e2e-tail.log
             echo '```'
           } > /tmp/comment.md
           exit 0
