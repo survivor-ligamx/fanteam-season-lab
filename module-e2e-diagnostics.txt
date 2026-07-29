@@ -1,10 +1,54 @@
 
 > fanteam-season-lab@1.0.0 test:e2e
-> playwright test --grep navega|file --reporter=line
+> playwright test --reporter=line
 
 
-Running 2 tests using 1 worker
+Running 6 tests using 1 worker
 
-[1/2] [chromium] › test/e2e/smoke.spec.mjs:42:1 › navega, renderiza y restaura un backup legacy en Chromium
-[2/2] [chromium] › test/e2e/smoke.spec.mjs:99:1 › abre la aplicación y sus módulos clásicos mediante file://
-  2 passed (13.5s)
+[1/6] [chromium] › test/e2e/health-states.spec.mjs:43:1 › conserva la superficie de salud cuando el payload remoto es parcial
+[2/6] [chromium] › test/e2e/smoke.spec.mjs:42:1 › navega, renderiza y restaura un backup legacy en Chromium
+[3/6] [chromium] › test/e2e/smoke.spec.mjs:99:1 › abre la aplicación y sus módulos clásicos mediante file://
+[4/6] [chromium] › test/e2e/stability.spec.mjs:30:1 › funciona en un contexto móvil aislado aunque localStorage esté denegado
+[5/6] [chromium] › test/e2e/stability.spec.mjs:58:1 › dos pestañas convergen al último estado, ignoran eventos viejos y propagan reset
+[6/6] [chromium] › test/e2e/stability.spec.mjs:104:1 › ignora eventos de almacenamiento corruptos y conserva la temporada visible
+  1) [chromium] › test/e2e/stability.spec.mjs:104:1 › ignora eventos de almacenamiento corruptos y conserva la temporada visible 
+
+    Error: page.evaluate: TypeError: Cannot set properties of null (setting 'gw')
+        at eval (eval at evaluate (:311:30), <anonymous>:4:16)
+        at UtilityScript.evaluate (<anonymous>:313:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:311:30), <anonymous>:4:16)
+        at UtilityScript.evaluate (<anonymous>:313:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at /home/runner/work/fanteam-season-lab/fanteam-season-lab/test/e2e/stability.spec.mjs:112:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/video-1.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/stability-ignora-eventos-d-ff593-nserva-la-temporada-visible-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    [chromium] › test/e2e/stability.spec.mjs:104:1 › ignora eventos de almacenamiento corruptos y conserva la temporada visible 
+  5 passed (30.7s)
