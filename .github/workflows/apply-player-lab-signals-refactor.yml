@@ -1,0 +1,28 @@
+name: Apply Player Lab signals refactor
+on:
+  push:
+    branches: [copilot/optimize-player-lab-signals]
+    paths: [scripts/apply-player-lab-signals-refactor.mjs]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: copilot/optimize-player-lab-signals
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/apply-player-lab-signals-refactor.mjs
+      - run: node scripts/generate-player-lab-signals-json.mjs
+      - run: node --test test/frontend/player-lab-signals.test.mjs test/frontend/player-lab-modules.test.mjs
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add premier-player-lab.html src/premier-player-lab.js package.json public-data/player-lab-signals.json
+          git rm scripts/apply-player-lab-signals-refactor.mjs .github/workflows/apply-player-lab-signals-refactor.yml
+          git commit -m "Implement on-demand Player Lab signals loading"
+          git push
