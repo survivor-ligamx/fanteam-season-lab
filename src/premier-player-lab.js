@@ -2,8 +2,9 @@ import { createPlayerLabMatching } from './player-lab/matching.js';
 import { createPlayerLabMonteCarlo } from './player-lab/monte-carlo.js';
 import { createPlayerLabSnapshots } from './player-lab/snapshots.js';
 import { createPlayerLabStatusRenderers } from './player-lab/status-renderers.js';
+import { loadPlayerLabSignals } from './player-lab/signals-loader.js';
 
-(function startPremierPlayerLab() {
+async function startPremierPlayerLab() {
   "use strict";
 
   const Data = globalThis.PremierLeagueData;
@@ -18,7 +19,7 @@ import { createPlayerLabStatusRenderers } from './player-lab/status-renderers.js
   }
 
   const ALTERNATIVE_LINEUP_PENALTY = MonteCarlo.ALTERNATIVE_LINEUP_PENALTY;
-  const PublicSignals = globalThis.FanTeamPlayerLabSignals || null;
+  const PublicSignals = await loadPlayerLabSignals();
   const storedCopilot = Copilot.read();
   const storedDraft = Draft.read();
   const storedProbable = Probable.read();
@@ -865,4 +866,12 @@ import { createPlayerLabStatusRenderers } from './player-lab/status-renderers.js
       $("#compareGrid").innerHTML = `<div class="pl-card empty-state"><strong>No se pudo abrir Player Lab</strong>${esc(error.message)}</div>`;
       $("#dataStatus span").textContent = "Error al preparar datos";
     });
-})();
+}
+
+startPremierPlayerLab().catch((error) => {
+  const grid = document.querySelector("#compareGrid");
+  if (grid) grid.innerHTML = `<div class="pl-card empty-state"><strong>No se pudo abrir Player Lab</strong>${String(error?.message || error)}</div>`;
+  const status = document.querySelector("#dataStatus span");
+  if (status) status.textContent = "Error al preparar datos";
+  console.error(error);
+});

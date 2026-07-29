@@ -16,7 +16,7 @@ test("Player Lab focused modules expose factories", () => {
 
 test("Player Lab HTML loads the ES module entrypoint", async () => {
   const html = await readFile(new URL("../../premier-player-lab.html", import.meta.url), "utf8");
-  assert.match(html, /<script type="module" src="src\/premier-player-lab\.js\?v=4"><\/script>/);
+  assert.match(html, /<script type="module" src="src\/premier-player-lab\.js\?v=5"><\/script>/);
 });
 
 test("Player Lab entrypoint imports every focused module", async () => {
