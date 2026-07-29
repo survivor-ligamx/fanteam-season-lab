@@ -1,9 +1,9 @@
-# Auditoría conservadora de CSS
+# Auditoría conservadora de `src/fanteam-premium.css`
 
-Pendiente de generación. Ejecuta:
+Este reporte se genera con:
 
 ```bash
-node scripts/audit-css.mjs
+node scripts/audit-css.mjs --coverage
 ```
 
-La auditoría no elimina reglas automáticamente: las clases generadas dinámicamente, los estados de interfaz, responsive, impresión y accesibilidad se conservan hasta contar con evidencia de uso suficiente.
+La ejecución usa Chrome DevTools Protocol a través de Playwright para recorrer las pestañas principales. Combina esa cobertura con referencias estáticas de HTML y JavaScript. La herramienta no borra selectores: conserva los estados dinámicos, responsive, accesibilidad, impresión y cualquier regla incierta.
