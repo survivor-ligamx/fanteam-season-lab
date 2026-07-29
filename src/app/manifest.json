@@ -1,0 +1,21 @@
+{
+  "comment": "Orden de carga de los módulos clásicos de la aplicación. src/app.js los carga en este orden y app/shared.js declara las funciones que core.js necesita en tiempo de carga. Generado por scripts/split-app-modules.mjs.",
+  "parts": [
+    "app/data.js",
+    "app/shared.js",
+    "app/core.js",
+    "app/wildcard-worker.js",
+    "app/odds.js",
+    "app/market.js",
+    "app/week-view.js",
+    "app/history.js",
+    "app/wildcards.js",
+    "app/editorial.js",
+    "app/health.js",
+    "app/updates.js",
+    "app/news.js",
+    "app/sync.js",
+    "app/bindings.js",
+    "app/bootstrap.js"
+  ]
+}

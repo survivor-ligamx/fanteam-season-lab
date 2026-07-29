@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - "index.html"
+      - "src/app.js"
+      - "src/app/**"
       - "scripts/validate-catalog.mjs"
       - ".github/workflows/catalog-quality.yml"
   push:
     branches: [main]
     paths:
       - "index.html"
+      - "src/app.js"
+      - "src/app/**"
       - "scripts/validate-catalog.mjs"
       - ".github/workflows/catalog-quality.yml"
 
