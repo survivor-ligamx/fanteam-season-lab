@@ -1,6 +1,6 @@
 import fs from "node:fs";
 
-const catalogSources = ["index.html", "src/app.js"]
+const catalogSources = ["index.html", "src/app.js", "src/app/data.js"]
   .filter((path) => fs.existsSync(path))
   .map((path) => fs.readFileSync(path, "utf8"));
 const source = catalogSources.join("\n");
