@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 
+// Keep the compact JSON byte-for-byte reproducible from the canonical offline snapshot.
 const sourceUrl = new URL("../public-data/player-lab-signals.js", import.meta.url);
 const targetUrl = new URL("../public-data/player-lab-signals.json", import.meta.url);
 const prefix = "// Datos derivados y normalizados; no contiene los CSV fuente.\nglobalThis.FanTeamPlayerLabSignals = Object.freeze(";
