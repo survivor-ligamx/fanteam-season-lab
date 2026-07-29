@@ -1,0 +1,37 @@
+name: Diagnose Player Lab CI
+on:
+  push:
+    branches: [copilot/optimize-player-lab-signals]
+    paths: [.github/workflows/diagnose-player-lab.yml]
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: copilot/optimize-player-lab-signals
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture lint and test output
+        shell: bash
+        run: |
+          set +e
+          mkdir -p diagnostics
+          npm run lint > diagnostics/pr65.log 2>&1
+          echo "LINT_STATUS=$?" >> diagnostics/pr65.log
+          npm test >> diagnostics/pr65.log 2>&1
+          echo "TEST_STATUS=$?" >> diagnostics/pr65.log
+          exit 0
+      - name: Commit diagnostics
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add diagnostics/pr65.log
+          git commit -m "Capture Player Lab CI diagnostics"
+          git push
