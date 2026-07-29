@@ -14,7 +14,7 @@ La auditoría estática conservadora (todos los tokens alfanuméricos de la fuen
 - `.club-WHU` (selector dentro de `.club-AVL, .club-WHU, .club-BUR`)
 - `.club-BUR` (selector dentro de `.club-AVL, .club-WHU, .club-BUR`)
 
-Reducción: **41,688 → 41,575 bytes (113 bytes)**. Todo lo demás se conserva, incluidas clases dinámicas, estados interactivos, responsive, impresión y accesibilidad.
+Reducción aplicada: **41,688 → 41,581 bytes (107 bytes)**. Todo lo demás se conserva, incluidas clases dinámicas, estados interactivos, responsive, impresión y accesibilidad.
 
 ## Safelist documentada
 
