@@ -1,0 +1,37 @@
+name: Apply verified CSS cleanup
+on:
+  push:
+    branches: [copilot/audit-and-remove-unused-css]
+    paths: [.github/workflows/apply-css-cleanup.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: copilot/audit-and-remove-unused-css
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Remove provably dead legacy club selectors
+        run: |
+          set -e
+          grep -q '.club-WOL {' src/fanteam-premium.css
+          grep -q '.club-AVL, .club-WHU, .club-BUR {' src/fanteam-premium.css
+          sed -i '/^\.club-WOL { color: #2b2004; background: linear-gradient(145deg, #ffc94d, #c88408); }$/d' src/fanteam-premium.css
+          sed -i 's/\.club-AVL, \.club-WHU, \.club-BUR {/.club-AVL {/' src/fanteam-premium.css
+          ! grep -q 'club-WOL' src/fanteam-premium.css
+          ! grep -q 'club-WHU' src/fanteam-premium.css
+          ! grep -q 'club-BUR' src/fanteam-premium.css
+          grep -q '.club-AVL {' src/fanteam-premium.css
+          wc -c src/fanteam-premium.css
+      - run: node --test test/frontend/css-audit.test.mjs
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/apply-css-cleanup.yml
+          git add src/fanteam-premium.css
+          git commit -m "Remove provably dead legacy club selectors from premium CSS"
+          git push
