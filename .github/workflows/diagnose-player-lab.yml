@@ -4,7 +4,8 @@ on:
     branches: [copilot/optimize-player-lab-signals]
     paths: [.github/workflows/diagnose-player-lab.yml]
 permissions:
-  contents: write
+  contents: read
+  pull-requests: write
 jobs:
   diagnose:
     runs-on: ubuntu-latest
@@ -12,26 +13,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: copilot/optimize-player-lab-signals
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Capture lint and test output
+      - name: Capture lint and tests
         shell: bash
         run: |
           set +e
-          mkdir -p diagnostics
-          npm run lint > diagnostics/pr65.log 2>&1
-          echo "LINT_STATUS=$?" >> diagnostics/pr65.log
-          npm test >> diagnostics/pr65.log 2>&1
-          echo "TEST_STATUS=$?" >> diagnostics/pr65.log
+          npm run lint > /tmp/diagnostics.log 2>&1
+          echo "LINT_STATUS=$?" >> /tmp/diagnostics.log
+          npm test >> /tmp/diagnostics.log 2>&1
+          echo "TEST_STATUS=$?" >> /tmp/diagnostics.log
+          tail -c 30000 /tmp/diagnostics.log > /tmp/diagnostics-tail.log
+          {
+            echo '## Diagnóstico automático temporal'
+            echo '```text'
+            cat /tmp/diagnostics-tail.log
+            echo '```'
+          } > /tmp/comment.md
           exit 0
-      - name: Commit diagnostics
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add diagnostics/pr65.log
-          git commit -m "Capture Player Lab CI diagnostics"
-          git push
+      - name: Post diagnostics
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment 65 --body-file /tmp/comment.md
