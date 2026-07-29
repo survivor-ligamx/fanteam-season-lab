@@ -1,5 +1,5 @@
 {
-  "comment": "Orden de carga de los módulos clásicos de la aplicación. src/app.js los carga en este orden; app/shared.js declara las funciones que core.js necesita en tiempo de carga.",
+  "comment": "Orden de carga de los módulos clásicos de la aplicación. src/app.js los carga en este orden y app/shared.js declara las funciones que core.js necesita en tiempo de carga. Generado por scripts/split-app-modules.mjs.",
   "parts": [
     "app/data.js",
     "app/shared.js",
