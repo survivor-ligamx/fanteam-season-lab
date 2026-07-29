@@ -27,6 +27,14 @@ async function routeWorker(target) {
   await target.route("**/*.workers.dev/**", (route) => route.fulfill({ json: workerPayload }));
 }
 
+async function expectAppReady(page) {
+  await expect(page.locator("#pitch .player")).toHaveCount(11);
+  await expect.poll(() => page.evaluate(() => {
+    const storage = globalThis.FanTeamSeasonStorage;
+    return Boolean(storage && localStorage.getItem(storage.STATE_KEY));
+  })).toBe(true);
+}
+
 test("funciona en un contexto móvil aislado aunque localStorage esté denegado", async ({ browser }) => {
   const context = await browser.newContext({ ...devices["Pixel 7"] });
   await context.addInitScript(() => {
@@ -61,6 +69,8 @@ test("dos pestañas convergen al último estado, ignoran eventos viejos y propag
   const second = await context.newPage();
   await first.goto("/");
   await second.goto("/");
+  await expectAppReady(first);
+  await expectAppReady(second);
   await expect(first.locator("#sideGW")).toHaveText("GW1");
   await expect(second.locator("#sideGW")).toHaveText("GW1");
 
@@ -107,6 +117,8 @@ test("ignora eventos de almacenamiento corruptos y conserva la temporada visible
   const second = await context.newPage();
   await first.goto("/");
   await second.goto("/");
+  await expectAppReady(first);
+  await expectAppReady(second);
   await expect(second.locator("#sideGW")).toHaveText("GW1");
 
   await first.evaluate(() => {
