@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 // --report: imprime el análisis en Markdown sin tocar archivos.
 // --apply: escribe el CSS recortado + docs/css-audit-fanteam-premium.md.
 // Regla de decisión: solo se retiran reglas/selectores demostrablemente sin uso
-// en index.html y en los literales de los scripts que manipulan esa página.
+// en index.html y en los tokens de los scripts que manipulan esa página.
 
 const mode = process.argv.includes("--apply") ? "apply" : "report";
 const CSS_PATH = "src/fanteam-premium.css";
@@ -94,19 +94,21 @@ for (const match of html.matchAll(/class="([^"]+)"/g)) {
 }
 for (const match of html.matchAll(/id="([^"]+)"/g)) usedIds.add(match[1]);
 
-// Literales de los scripts que renderizan en index.html (app principal).
+// Extracción conservadora: TODOS los tokens alfanuméricos de la fuente cuentan
+// como posible uso. Garantiza cero falsos negativos (una clase usada jamás se
+// pierde); los identificadores compartidos solo hacen la auditoría más prudente.
 const jsFiles = readdirSync("src")
   .filter((name) => name.endsWith(".js") && !name.startsWith("premier-") && !name.startsWith("fpl-copilot") && !name.startsWith("draft-fantasy") && !name.startsWith("probable-lineups"))
   .map((name) => `src/${name}`);
 let literals = 0;
 for (const file of jsFiles) {
   const source = readFileSync(file, "utf8");
-  for (const match of source.matchAll(/'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`/gs)) {
-    const raw = match[1] ?? match[2] ?? match[3] ?? "";
-    for (const token of raw.split(/[^A-Za-z0-9_-]+/)) {
-      if (token) { usedClasses.add(token); literals++; }
-    }
-    for (const token of raw.split(/\s+/)) if (token) usedClasses.add(token);
+  const tokens = source.split(/[^A-Za-z0-9_-]+/);
+  literals += tokens.length;
+  for (const token of tokens) {
+    if (!token) continue;
+    usedClasses.add(token);
+    usedIds.add(token);
   }
 }
 
@@ -125,8 +127,7 @@ try {
 // Safelist documentada: clases que se construyen por interpolación con datos.
 const SAFELIST = new Set();
 for (const club of CATALOG_CLUBS) SAFELIST.add(`club-${club}`);
-const SAFE_PREFIXES = [];
-const isUsed = (token) => usedClasses.has(token) || SAFELIST.has(token) || SAFE_PREFIXES.some((prefix) => token.startsWith(prefix));
+const isUsed = (token) => usedClasses.has(token) || SAFELIST.has(token);
 
 // ---------- 3) Evaluación de reglas ----------
 const decisions = [];
@@ -172,7 +173,7 @@ const deadKeyframes = keyframeRules.filter((rule) => !animationRefs.has(rule.nam
 const deadRules = decisions.filter((d) => d.status === "dead");
 const mixedRules = decisions.filter((d) => d.status === "mixed");
 const removedSelectorsEstimate =
-  deadRules.reduce((sum, d) => sum + d.selector.length, 0)
+  deadRules.reduce((sum, d) => sum + d.full.length, 0)
   + mixedRules.reduce((sum, d) => sum + d.deadParts.reduce((s, v) => s + v.part.length + 2, 0), 0)
   + deadKeyframes.reduce((sum, rule) => sum + rule.full.length, 0);
 
@@ -181,7 +182,7 @@ lines.push(`# Auditoría de \`${CSS_PATH}\``);
 lines.push("");
 lines.push(`- Tamaño actual: **${originalBytes} bytes**`);
 lines.push(`- Reglas de estilo evaluadas: **${decisions.length}**`);
-lines.push(`- Clases con uso detectado (HTML + ${jsFiles.length} scripts, ${literals} literales): **${usedClasses.size}**`);
+lines.push(`- Clases con uso detectado (HTML + ${jsFiles.length} scripts, ${literals} tokens): **${usedClasses.size}**`);
 lines.push(`- Legacy \`legacy/index-v1.html\` referencia la hoja: **${legacyUsesSheet ? "sí" : "no"}**`);
 lines.push(`- Estimación bruta retirable: **~${removedSelectorsEstimate} bytes**`);
 lines.push("");
@@ -215,7 +216,8 @@ if (mode === "report") {
       let local = "";
       let pos = 0;
       for (const block of blocks) {
-        local += source.slice(pos, source.indexOf(block.full, pos));
+        const blockStart = source.indexOf(block.full, pos);
+        local += source.slice(pos, blockStart);
         if (block.kind === "rule") {
           if (deadSelectorSet.has(block.selector)) {
             // retirar la regla completa
@@ -234,7 +236,7 @@ if (mode === "report") {
         } else {
           local += block.full;
         }
-        pos = source.indexOf(block.full, pos) + block.full.length;
+        pos = blockStart + block.full.length;
       }
       local += source.slice(pos);
       return local;
