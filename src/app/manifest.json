@@ -1,7 +1,8 @@
 {
-  "comment": "Orden de carga de los módulos clásicos de la aplicación. src/app.js los carga en este orden; la concatenación en este orden reproduce el comportamiento original.",
+  "comment": "Orden de carga de los módulos clásicos de la aplicación. src/app.js los carga en este orden; app/shared.js declara las funciones que core.js necesita en tiempo de carga.",
   "parts": [
     "app/data.js",
+    "app/shared.js",
     "app/core.js",
     "app/wildcard-worker.js",
     "app/odds.js",

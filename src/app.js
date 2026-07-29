@@ -6,6 +6,7 @@
   const scriptUrl = document.currentScript && document.currentScript.src;
   const parts = [
     "app/data.js",
+    "app/shared.js",
     "app/core.js",
     "app/wildcard-worker.js",
     "app/odds.js",
